@@ -22,3 +22,16 @@ steps:
 
     run: steps/annotate-concatenate.cwl
     label: "Annotates and concatenates h5ad data files in directory"
+
+  - id: scanpy_analysis
+    in:
+      - id: concatenated_file
+        source: annotate-concatenate/concatenated_file
+    out:
+      - qc_results
+      - filtered_data
+      - umap_pdf
+      - marker_gene_plot_t_test
+      - marker_gene_plot_logreg
+    run: steps/scanpy-analysis.cwl
+    label: "Secondary analysis via ScanPy"
