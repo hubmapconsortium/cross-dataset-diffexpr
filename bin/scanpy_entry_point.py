@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import scanpy as sc
 
+import pickledb as pdb
+
 @contextmanager
 def new_plot():
     """
@@ -33,72 +35,64 @@ def new_plot():
         plt.clf()
         plt.close()
 
-def qc_checks(adata: anndata.AnnData):
-    qc_by_cell, qc_by_gene = sc.pp.calculate_qc_metrics(adata)
-
-    # current directory is set up by the CWL runner
-    qc_path = Path('qc_results.hdf5').absolute()
-    print('Saving QC results to', qc_path)
-    with pd.HDFStore(qc_path) as store:
-        store['qc_by_cell'] = qc_by_cell
-        store['qc_by_gene'] = qc_by_gene
-
 def main(h5ad_file: Path):
+
+    groupings = ['leiden', 'dataset', 'tissue_type']
+    adatas = {}
+
     adata = anndata.read_h5ad(h5ad_file)
     adata.var_names_make_unique()
 
-    qc_checks(adata)
-
-    sc.pp.filter_cells(adata, min_genes=200)
-    sc.pp.filter_genes(adata, min_cells=3)
-
-    # add the total counts per cell as observations-annotation to adata
-    adata.obs['n_counts'] = adata.X.sum(axis=1)
-
-    adata.raw = sc.pp.log1p(adata, copy=True)
-
-    sc.pp.normalize_per_cell(adata, counts_per_cell_after=1e4)
-
-    filter_result = sc.pp.filter_genes_dispersion(adata.X, min_mean=0.0125, max_mean=5, min_disp=0)
-    sc.pl.filter_genes_dispersion(filter_result, show=False, save='dispersion.pdf')
-
-    # %%
-    adata = adata[:, filter_result.gene_subset]
-    sc.pp.scale(adata, max_value=10)
-
-    sc.pp.neighbors(adata, n_neighbors=10, n_pcs=10)
+    #Batch correction with bbknn and dimension reduction
+    sc.tl.pca(adata)
+    sc.external.pp.bbknn(adata, batch_key='batch')
     sc.tl.umap(adata)
 
     with new_plot():
         sc.pl.umap(adata)
         plt.savefig('umap.pdf', bbox_inches='tight')
 
+    #leiden clustering
     sc.tl.leiden(adata)
 
-    with new_plot():
-        sc.pl.umap(adata, color='leiden')
-        plt.savefig('umap_by_leiden_cluster.pdf', bbox_inches='tight')
+    marker_gene_lists = {}
 
-    sc.tl.rank_genes_groups(adata, 'leiden', method='t-test')
+    for group_by in groupings:
+    #for each thing we want to group by
 
-    with new_plot():
-        sc.pl.rank_genes_groups(adata, n_genes=25, sharey=False)
-        plt.savefig('marker_genes_by_cluster_t_test.pdf', bbox_inches='tight')
+        adatas[group_by] = adata.copy()
+        sc.tl.rank_genes_groups(adatas[group_by], group_by, method='t-test')
 
-    sc.tl.rank_genes_groups(adata, 'leiden', method='logreg')
+        #get the group_ids and then the gene_names and scores for each
+        for group_id in adatas[group_by].obs[group_by].unique():
+            gene_names = adatas[group_by].uns['rank_genes_groups']['names'][group_id]
+            scores = adatas[group_by].uns['rank_genes_groups']['scores'][group_id]
+            names_and_scores = zip(gene_names, scores)
+            for ns in names_and_scores:
+                if ns[0] not in marker_gene_lists.keys():
+                    marker_gene_lists[ns[0]] = []
+                marker_gene_lists[ns[0]].append((group_by, group_id, str(ns[1])))
 
-    with new_plot():
-        sc.pl.rank_genes_groups(adata, n_genes=25, sharey=False)
-        plt.savefig('marker_genes_by_cluster_logreg.pdf', bbox_inches='tight')
+        #Write out as h5ad
+        output_file = Path('marker_genes_by_' + group_by + '_t_test.h5ad')
+        print('Saving output to', output_file.absolute())
+        adatas[group_by].write_h5ad(output_file)
 
-    output_file = Path('cluster_marker_genes.h5ad')
-    print('Saving output to', output_file.absolute())
-    # Save normalized/etc. data
-    adata.write_h5ad(output_file)
+        #And as pdf
+        with new_plot():
+            sc.pl.rank_genes_groups(adatas[group_by], n_genes=25, sharey=False)
+            plt.savefig('marker_genes_by_' + group_by + '_t_test.pdf', bbox_inches='tight')
+
+    db = pdb.load('marker_genes.db', False)
+
+    for gene_name in marker_gene_lists.keys():
+        db.set(gene_name, marker_gene_lists[gene_name])
+
+    db.dump()
 
 if __name__ == '__main__':
     p = ArgumentParser()
-    p.add_argument('alevin_h5ad_file', type=Path)
+    p.add_argument('concatenated_h5ad_file', type=Path)
     args = p.parse_args()
 
-    main(args.alevin_h5ad_file)
+    main(args.concatenated_h5ad_file)

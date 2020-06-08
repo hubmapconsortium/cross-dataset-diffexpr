@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+
 #Load multiple .h5ad files from different directories, probably the filtered cluster_marker_genes.h5ad files
 
 #Annotate each file/cell/cluster with the data set/tissue of origin -- for labeling the overall data set, you can add a new key to the .uns mapping in the AnnData object, other annotations would probably go in .obs
@@ -15,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 pattern = "*cluster_marker_genes.h5ad"
-data_set_spreadsheet = "/home/sean/Documents/code/cross-dataset-diffexpr/spreadsheet.csv"
+data_set_spreadsheet = "/opt/spreadsheet.csv"
 
 def find_h5ad_files(directory: Path) -> Iterable[Path]:
     for dirpath_str, dirnames, filenames in walk(directory):
@@ -41,8 +44,7 @@ def get_tissue_type(file: Path) -> str:
         if data_set_dir in spreadsheet_df['localPath'][i]:
             return spreadsheet_df['Organ/Tissue'][i]
 
-
-def annotate_file(file: Path)-> Path:
+def annotate_file(file: Path)-> anndata.AnnData:
     #Get the directory
     data_set_dir = fspath(file.parent.stem)
     #And the tissue type
@@ -50,31 +52,26 @@ def annotate_file(file: Path)-> Path:
 
     #Add both to uns
     adata = anndata.read_h5ad(file)
-    adata.uns['dataset'] = data_set_dir
-    adata.uns['tissue_type'] = tissue_type
+    adata.obs['dataset'] = data_set_dir
+    adata.obs['tissue_type'] = tissue_type
 
-    annotated_file = file.parent / Path('annotated-' + fspath(file.name))
-
-    adata.write(annotated_file)
-
-    return annotated_file
+#    return adata
+    return adata[:20].copy()
 
 def main(directory: Path):
+    print("Main")
     #Load files
-    h5ad_files = find_h5ad_files(directory)
+    h5ad_files = list(find_h5ad_files(directory))
     #Annotate
-    annotated_h5ad_files = [annotate_file(file) for file in h5ad_files]
     print("Made it here")
     #Concatenate
-    concatenated_file = anndata.read_h5ad(annotated_h5ad_files[0])
-    for file in annotated_h5ad_files[1:]:
-        annotated_file = anndata.read_h5ad(file)
-        concatenated_file.concatenate(annotated_file)
+
+    concatenated_file = annotate_file(h5ad_files[0])
+    for file in h5ad_files[1:]:
+        annotated_file = annotate_file(file)
+        concatenated_file = concatenated_file.concatenate(annotated_file)
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
-
-#    annotated_h5ad_files[0].concatenate(annotated_h5ad_files[1:])
-#    annotated_h5ad_files[0].write('concatenated_annotated_data.h5ad')
 
 if __name__ == '__main__':
     p = ArgumentParser()

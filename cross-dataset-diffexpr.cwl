@@ -10,6 +10,15 @@ inputs:
     type: Directory
 
 outputs:
+  h5ad_files:
+    outputSource: scanpy_analysis/h5ad_files
+    type: File[]
+  pdf_files:
+    outputSource: scanpy_analysis/pdf_files
+    type: File[]
+  marker_gene_database:
+    outputSource: scanpy_analysis/marker_gene_database
+    type: File
 
 steps:
   - id: annotate-concatenate
@@ -28,10 +37,9 @@ steps:
       - id: concatenated_file
         source: annotate-concatenate/concatenated_file
     out:
-      - qc_results
-      - filtered_data
-      - umap_pdf
-      - marker_gene_plot_t_test
-      - marker_gene_plot_logreg
+      - h5ad_files
+      - pdf_files
+      - marker_gene_database
+
     run: steps/scanpy-analysis.cwl
-    label: "Secondary analysis via ScanPy"
+    label: "Cross dataset secondary analysis via ScanPy"
