@@ -31,13 +31,6 @@ def find_h5ad_files(directory: Path) -> Iterable[Path]:
 def get_tissue_type(file: Path) -> str:
     data_set_dir = fspath(file.parent.stem)
 
-#    with pd.read_csv(data_set_spreadsheet) as spreadsheet_df:
-    #Open spreadsheet csv and select relevant parts
-#        transcriptomics_df = spreadsheet_df[spreadsheet_df['Data Modality'] == 'Transcriptomics'].copy()
-
-#        for i in range(len(transcriptomics_df.index)):
-#            if data_set_dir in transcriptomics_df['localPath'][i]:
-#                return transcriptomics_df['Organ/Tissue'][i]
     spreadsheet_df = pd.read_csv(data_set_spreadsheet)
 
     for i in range(len(spreadsheet_df.index)):
@@ -56,7 +49,7 @@ def annotate_file(file: Path)-> anndata.AnnData:
     adata.obs['tissue_type'] = tissue_type
 
 #    return adata
-    return adata[:20].copy()
+    return adata.copy()
 
 def main(directory: Path):
     print("Main")
