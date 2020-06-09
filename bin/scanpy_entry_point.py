@@ -57,21 +57,27 @@ def main(h5ad_file: Path):
 
     marker_gene_lists = {}
 
+    #get number of genes
+    num_genes = len(adata.var.index)
+
     for group_by in groupings:
     #for each thing we want to group by
 
         adatas[group_by] = adata.copy()
-        sc.tl.rank_genes_groups(adatas[group_by], group_by, method='t-test')
+        sc.tl.rank_genes_groups(adatas[group_by], group_by, method='t-test', rankby_abs=True, n_genes=num_genes)
 
         #get the group_ids and then the gene_names and scores for each
         for group_id in adatas[group_by].obs[group_by].unique():
-            gene_names = adatas[group_by].uns['rank_genes_groups']['names'][group_id]
-            scores = adatas[group_by].uns['rank_genes_groups']['scores'][group_id]
-            names_and_scores = zip(gene_names, scores)
-            for ns in names_and_scores:
-                if ns[0] not in marker_gene_lists.keys():
-                    marker_gene_lists[ns[0]] = []
-                marker_gene_lists[ns[0]].append((group_by, group_id, str(ns[1])))
+            cell_ids = adatas[group_by].obs[adatas[group_by].obs[group_by] == group_id].index
+            for cell_id in cell_ids:
+            #get cell ids for that group_id/grouping
+                gene_names = adatas[group_by].uns['rank_genes_groups']['names'][group_id]
+                scores = adatas[group_by].uns['rank_genes_groups']['scores'][group_id]
+                names_and_scores = zip(gene_names, scores)
+                for ns in names_and_scores:
+                    if ns[0] not in marker_gene_lists.keys():
+                        marker_gene_lists[ns[0]] = []
+                    marker_gene_lists[ns[0]].append((cell_id, (group_by, group_id, str(ns[1]))))
 
         #Write out as h5ad
         output_file = Path('marker_genes_by_' + group_by + '_t_test.h5ad')
