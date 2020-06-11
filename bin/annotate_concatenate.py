@@ -62,7 +62,7 @@ def main(directory: Path):
     concatenated_file = annotate_file(h5ad_files[0])
     for file in h5ad_files[1:]:
         annotated_file = annotate_file(file)
-        concatenated_file = concatenated_file.concatenate(annotated_file)
+        concatenated_file = concatenated_file.concatenate(annotated_file, join='outer', fill_value=0)
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
 
