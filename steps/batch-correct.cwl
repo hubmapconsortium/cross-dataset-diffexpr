@@ -1,10 +1,10 @@
 cwlVersion: v1.0
 class: CommandLineTool
-label: Dimensionality reduction and clustering
+label: Batch correction, dimensionality reduction and clustering
 hints:
   DockerRequirement:
     dockerPull: hubmap/cross-dataset-scanpy:latest
-baseCommand: /opt/scanpy_entry_point.py
+baseCommand: /opt/batch_correct_umap_cluster.py
 
 inputs:
   concatenated_file:
@@ -13,7 +13,7 @@ inputs:
       position: 1
 outputs:
   h5ad_files:
-    type: File[]
+    type: File
     outputBinding:
       glob: "*.h5ad"
 
@@ -21,8 +21,3 @@ outputs:
     type: File[]
     outputBinding:
       glob: "*.pdf"
-
-  marker_gene_database:
-    type: File
-    outputBinding:
-      glob: marker_genes.db

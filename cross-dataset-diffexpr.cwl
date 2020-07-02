@@ -32,14 +32,23 @@ steps:
     run: steps/annotate-concatenate.cwl
     label: "Annotates and concatenates h5ad data files in directory"
 
-  - id: scanpy_analysis
+  - id: batch-correct
     in:
       - id: concatenated_file
         source: annotate-concatenate/concatenated_file
     out:
-      - h5ad_files
+      - h5ad_file
       - pdf_files
-      - marker_gene_database
 
-    run: steps/scanpy-analysis.cwl
+    run: steps/batch-correct.cwl
+    label: "Cross dataset secondary analysis via ScanPy"
+
+  - id: scanpy_analysis
+    in:
+      - id: batch_correct_file
+        source: batch-correct/h5ad_file
+    out:
+      - h5ad_files
+
+    run: steps/marker-gene.cwl
     label: "Cross dataset secondary analysis via ScanPy"
