@@ -36,6 +36,9 @@ def new_plot():
 
 def main(h5ad_file: Path):
 
+    expression_cutoff = .5
+    over_expression_cutoff = .001
+
     groupings = ['leiden', 'dataset', 'tissue_type']
 
     adata = anndata.read_h5ad(h5ad_file)
@@ -54,12 +57,17 @@ def main(h5ad_file: Path):
             df_select = adata.obs[adata.obs[group_by] == group_id]
 
             gene_names = adata.uns['rank_genes_groups']['names'][group_id]
-            scores = adata.uns['rank_genes_groups']['pvals'][group_id]
-            names_and_scores = zip(gene_names, scores)
+            pvals = adata.uns['rank_genes_groups']['pvals'][group_id]
+            names_and_pvals = zip(gene_names, pvals)
 
-            for ns in names_and_scores:
-                column_name = ns[0] + '_' + group_by
-                df_select[column_name] = ns[1]
+            expressed_genes = [np[0] for np in names_and_pvals if np[1] < expression_cutoff]
+            overexpressed_genes = [np[0] for np in names_and_pvals if np[1] < over_expression_cutoff]
+
+            expressed_gene_string = ", ".join(expressed_genes)
+            overexpressed_gene_string = ", ".join(overexpressed_genes)
+            for index in df_select.index:
+                df_select.at[index, group_by + '_' + expressed_genes] = expressed_gene_string
+                df_select.at[index, group_by + '_' + overexpressed_genes] = overexpressed_gene_string
 
 
         #Write out as h5ad

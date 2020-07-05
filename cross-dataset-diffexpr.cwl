@@ -10,15 +10,12 @@ inputs:
     type: Directory
 
 outputs:
-  h5ad_files:
-    outputSource: scanpy_analysis/h5ad_files
-    type: File[]
-  pdf_files:
-    outputSource: scanpy_analysis/pdf_files
-    type: File[]
-  marker_gene_database:
-    outputSource: scanpy_analysis/marker_gene_database
+  h5ad_file:
+    outputSource: batch-correct/h5ad_file
     type: File
+  pdf_files:
+    outputSource: batch-correct/pdf_files
+    type: File[]
 
 steps:
   - id: annotate-concatenate
@@ -41,14 +38,14 @@ steps:
       - pdf_files
 
     run: steps/batch-correct.cwl
-    label: "Cross dataset secondary analysis via ScanPy"
+    label: "Cross dataset secondary analysis via ScanPy, including batch correction, dimensionality reduction and leiden clustering"
 
-  - id: scanpy_analysis
+  - id: marker-gene
     in:
-      - id: batch_correct_file
+      - id: batch_corrected_file
         source: batch-correct/h5ad_file
     out:
       - h5ad_files
 
     run: steps/marker-gene.cwl
-    label: "Cross dataset secondary analysis via ScanPy"
+    label: "Cross dataset secondary analysis via ScanPy, including marker gene analysis"
