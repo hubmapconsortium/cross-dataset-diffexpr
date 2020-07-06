@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import scanpy as sc
 import numpy as np
+import sqlite3
 
 @contextmanager
 def new_plot():
@@ -41,11 +42,19 @@ def main(h5ad_file: Path):
 
     groupings = ['leiden', 'dataset', 'tissue_type']
 
+    expressed_genes_dict = {}
+    overexpressed_genes_dict = {}
+
     adata = anndata.read_h5ad(h5ad_file)
     adata.var_names_make_unique()
 
     #get number of genes
     num_genes = len(adata.var.index)
+
+    df = adata.obs.copy()
+
+    df['expressed_genes'] = pd.Series(dtype=str)
+    df['overexpressed_genes'] = pd.Series(dtype=str)
 
     for group_by in groupings:
     #for each thing we want to group by
@@ -53,8 +62,8 @@ def main(h5ad_file: Path):
         sc.tl.rank_genes_groups(adata, group_by, method='t-test', rankby_abs=True, n_genes=num_genes)
 
         #get the group_ids and then the gene_names and scores for each
-        for group_id in adata.obs[group_by].unique():
-            df_select = adata.obs[adata.obs[group_by] == group_id]
+        for group_id in df[group_by].unique():
+            df_select = df[df[group_by] == group_id]
 
             gene_names = adata.uns['rank_genes_groups']['names'][group_id]
             pvals = adata.uns['rank_genes_groups']['pvals'][group_id]
@@ -63,22 +72,36 @@ def main(h5ad_file: Path):
             expressed_genes = [np[0] for np in names_and_pvals if np[1] < expression_cutoff]
             overexpressed_genes = [np[0] for np in names_and_pvals if np[1] < over_expression_cutoff]
 
-            expressed_gene_string = ", ".join(expressed_genes)
-            overexpressed_gene_string = ", ".join(overexpressed_genes)
             for index in df_select.index:
-                df_select.at[index, group_by + '_' + expressed_genes] = expressed_gene_string
-                df_select.at[index, group_by + '_' + overexpressed_genes] = overexpressed_gene_string
-
-
-        #Write out as h5ad
-        output_file = Path('marker_genes_by_' + group_by + '_t_test.h5ad')
-        print('Saving output to', output_file.absolute())
-        adatas[group_by].write_h5ad(output_file)
+                if index not in expressed_genes_dict.keys():
+                    expressed_genes_dict[index] = []
+                    overexpressed_genes_dict[index] = []
+                expressed_genes_dict[index].extend(expressed_genes)
+                overexpressed_genes_dict[index].extend(overexpressed_genes)
 
         #And as pdf
         with new_plot():
-            sc.pl.rank_genes_groups(adatas[group_by], n_genes=25, sharey=False)
+            sc.pl.rank_genes_groups(adata, n_genes=25, sharey=False)
             plt.savefig('marker_genes_by_' + group_by + '_t_test.pdf', bbox_inches='tight')
+
+
+    for index in expressed_genes_dict.keys():
+        expressed_genes_set = set(expressed_genes_dict[index])
+        overexpressed_genes_set = set(overexpressed_genes_dict[index])
+
+        expressed_gene_string = ", ".join(expressed_genes_set)
+        overexpressed_gene_string = ", ".join(overexpressed_genes_set)
+
+        df.at[index, 'expressed_genes'] = expressed_gene_string
+        df.at[index, 'overexpressed_genes'] = overexpressed_gene_string
+
+
+    print('If you see this first, then conversion to categorical is happening at write-out')
+    #Write out as sql db
+    output_file = Path('rna.db')
+    print('Saving output to', output_file.absolute())
+    conn = sqlite3.connect(output_file)
+    df.to_sql('rna', conn, if_exists='replace', index=True)
 
 
 if __name__ == '__main__':

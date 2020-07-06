@@ -16,6 +16,9 @@ outputs:
   pdf_files:
     outputSource: batch-correct/pdf_files
     type: File[]
+  db_file:
+    outputSource: marker-gene/db_file
+    type: File
 
 steps:
   - id: annotate-concatenate
@@ -45,7 +48,7 @@ steps:
       - id: batch_corrected_file
         source: batch-correct/h5ad_file
     out:
-      - h5ad_files
+      - db_file
 
     run: steps/marker-gene.cwl
     label: "Cross dataset secondary analysis via ScanPy, including marker gene analysis"
