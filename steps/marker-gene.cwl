@@ -12,7 +12,7 @@ inputs:
     inputBinding:
       position: 1
 outputs:
-  db_file:
-    type: File
+  csv_files:
+    type: File[]
     outputBinding:
-      glob: "*rna.db"
+      glob: "*.csv"

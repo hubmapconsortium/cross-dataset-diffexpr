@@ -47,7 +47,7 @@ def annotate_file(file: Path)-> anndata.AnnData:
     adata = anndata.read_h5ad(file)
     adata.obs['dataset'] = data_set_dir
     adata.obs['tissue_type'] = tissue_type
-
+    adata.obs['modality'] = 'rna'
 #    return adata
     return adata.copy()
 

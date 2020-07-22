@@ -2,13 +2,13 @@
 from argparse import ArgumentParser
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Dict, List
 
 import anndata
 import matplotlib.pyplot as plt
 import pandas as pd
 import scanpy as sc
 import numpy as np
-import sqlite3
 
 @contextmanager
 def new_plot():
@@ -35,26 +35,29 @@ def new_plot():
         plt.clf()
         plt.close()
 
-def main(h5ad_file: Path):
+def get_gene_rows(gene_groupings:Dict[str, List[str]], marker_gene_groupings:Dict[str, List[str]]):
 
-    expression_cutoff = .5
-    over_expression_cutoff = .001
+    gene_rows = []
 
-    groupings = ['leiden', 'dataset', 'tissue_type']
+    for gene in gene_groupings.keys():
+        gene_id = gene
+        gene_list = gene_groupings[gene]
+        if gene in marker_gene_groupings.keys():
+            marker_gene_list = marker_gene_groupings[gene]
+        else:
+            marker_gene_list = []
+        gene_rows.append({'gene_id':gene_id, 'groups':gene_list, 'marker_groups':marker_gene_list})
 
-    expressed_genes_dict = {}
-    overexpressed_genes_dict = {}
+    return gene_rows
 
-    adata = anndata.read_h5ad(h5ad_file)
-    adata.var_names_make_unique()
+def get_rows(adata:anndata.AnnData, groupings:List[str])->List[Dict]:
 
-    #get number of genes
-    num_genes = len(adata.var.index)
+    cutoff = 0.9
+    marker_cutoff = .001
 
-    df = adata.obs.copy()
+    num_genes = len(adata.var_names)
 
-    df['expressed_genes'] = pd.Series(dtype=str)
-    df['overexpressed_genes'] = pd.Series(dtype=str)
+    cell_df = adata.obs.copy()
 
     for group_by in groupings:
     #for each thing we want to group by
@@ -62,47 +65,53 @@ def main(h5ad_file: Path):
         sc.tl.rank_genes_groups(adata, group_by, method='t-test', rankby_abs=True, n_genes=num_genes)
 
         #get the group_ids and then the gene_names and scores for each
-        for group_id in df[group_by].unique():
-            df_select = df[df[group_by] == group_id]
+        for group_id in cell_df[group_by].unique():
+
+            if type(group_id) == float and np.isnan(group_id):
+                continue
+
+            condition = group_by + "==" + str(group_id)
 
             gene_names = adata.uns['rank_genes_groups']['names'][group_id]
             pvals = adata.uns['rank_genes_groups']['pvals'][group_id]
             names_and_pvals = zip(gene_names, pvals)
 
-            expressed_genes = [np[0] for np in names_and_pvals if np[1] < expression_cutoff]
-            overexpressed_genes = [np[0] for np in names_and_pvals if np[1] < over_expression_cutoff]
+            for n_p in names_and_pvals:
 
-            for index in df_select.index:
-                if index not in expressed_genes_dict.keys():
-                    expressed_genes_dict[index] = []
-                    overexpressed_genes_dict[index] = []
-                expressed_genes_dict[index].extend(expressed_genes)
-                overexpressed_genes_dict[index].extend(overexpressed_genes)
+                if n_p[1] < cutoff:
+                    if n_p[0] not in gene_groupings.keys():
+                        gene_groupings[n_p[0]] = []
+                    gene_groupings[n_p[0]].append(condition)
 
-        #And as pdf
-        with new_plot():
-            sc.pl.rank_genes_groups(adata, n_genes=25, sharey=False)
-            plt.savefig('marker_genes_by_' + group_by + '_t_test.pdf', bbox_inches='tight')
+                if n_p[1] < marker_cutoff:
+                    if n_p[0] not in marker_gene_groupings.keys():
+                        marker_gene_groupings[n_p[0]] = []
+                    marker_gene_groupings[n_p[0]].append(condition)
 
+            genes = [n_p[0] for n_p in names_and_pvals if np[1] < cutoff]
+            marker_genes = [n_p[0] for n_p in names_and_pvals if np[1] < marker_cutoff]
 
-    for index in expressed_genes_dict.keys():
-        expressed_genes_set = set(expressed_genes_dict[index])
-        overexpressed_genes_set = set(overexpressed_genes_dict[index])
+            group_rows.append({'condition':condition, 'genes':genes, 'marker_genes':marker_genes})
 
-        expressed_gene_string = ", ".join(expressed_genes_set)
-        overexpressed_gene_string = ", ".join(overexpressed_genes_set)
+    gene_rows = get_gene_rows(gene_groupings, marker_gene_groupings)
 
-        df.at[index, 'expressed_genes'] = expressed_gene_string
-        df.at[index, 'overexpressed_genes'] = overexpressed_gene_string
+    return group_rows, gene_rows
 
+def main(h5ad_file: Path):
 
-    print('If you see this first, then conversion to categorical is happening at write-out')
-    #Write out as sql db
-    output_file = Path('rna.db')
-    print('Saving output to', output_file.absolute())
-    conn = sqlite3.connect(output_file)
-    df.to_sql('rna', conn, if_exists='replace', index=True)
+    adata = anndata.read_htad(h5ad_file)
 
+    groupings = ['cluster', 'dataset', 'tissue_type']
+
+    group_rows, gene_rows = get_rows(adata, groupings)
+
+    cell_df = adata.obs.copy()
+    gene_df = pd.DataFrame(gene_rows)
+    group_df = pd.DataFrame(group_rows)
+
+    cell_df.to_csv('rna.csv')
+    group_df.to_csv('rna_group.csv')
+    gene_df.to_csv('rna_gene.csv')
 
 if __name__ == '__main__':
     p = ArgumentParser()
