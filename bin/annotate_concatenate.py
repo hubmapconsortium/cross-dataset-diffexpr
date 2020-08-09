@@ -17,8 +17,8 @@ import anndata
 import numpy as np
 import pandas as pd
 
-pattern = "*cluster_marker_genes.h5ad"
-data_set_spreadsheet = "/opt/spreadsheet.csv"
+pattern = "*out.h5ad"
+data_set_spreadsheet = "/home/sean/Documents/code/cross-dataset-diffexpr/bin/spreadsheet.csv"
 
 def find_h5ad_files(directory: Path) -> Iterable[Path]:
     for dirpath_str, dirnames, filenames in walk(directory):
@@ -49,7 +49,7 @@ def annotate_file(file: Path)-> anndata.AnnData:
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
 #    return adata
-    return adata.copy()
+    return adata[500].copy()
 
 def main(directory: Path):
     print("Main")
