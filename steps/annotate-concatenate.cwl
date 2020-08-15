@@ -8,11 +8,17 @@ hints:
 baseCommand: /opt/annotate_concatenate.py
 
 inputs:
-  data_dir:
-    type: Directory
-    doc: Base directory to be recursively searched for h5ad files to be annotated and concatenated
+  nexus_token:
+    type: string
+    doc: Valid nexus token for search-api
     inputBinding:
       position: 1
+
+  data_directories:
+    type: string[]
+    doc: List of paths to processed dataset directories
+    inputBinding:
+      position: 2
 
 outputs:
   concatenated_file:
