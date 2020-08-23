@@ -47,7 +47,7 @@ steps:
   - id: batch-correct
     in:
       - id: concatenated_annotated_file
-        source: annotate-concatenate/concatenated_file
+        source: annotate-concatenate/concatenated_annotated_file
     out:
       - h5ad_file
       - pdf_files

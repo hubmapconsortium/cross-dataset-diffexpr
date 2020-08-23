@@ -21,7 +21,7 @@ inputs:
       position: 2
 
 outputs:
-  concatenated_file:
+  concatenated_annotated_file:
     type: File
     outputBinding:
       glob: "concatenated_annotated_data.h5ad"
