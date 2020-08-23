@@ -8,7 +8,7 @@ inputs:
 
   data_directories:
     label: "List of paths to all processed RNA datasets"
-    type: Directories
+    type: Directory[]
 
   nexus_token:
     label: "Valid nexus token for search-api"
