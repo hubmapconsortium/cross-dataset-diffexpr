@@ -7,7 +7,7 @@ hints:
 baseCommand: /opt/batch_correct_umap_cluster.py
 
 inputs:
-  concatenated_file:
+  concatenated_annotated_file:
     type: File
     inputBinding:
       position: 1

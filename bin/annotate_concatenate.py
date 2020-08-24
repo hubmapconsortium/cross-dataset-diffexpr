@@ -16,9 +16,10 @@ from typing import Dict, List, Tuple, Iterable
 import anndata
 import numpy as np
 import pandas as pd
+import yaml
+import requests
 
 pattern = "*out.h5ad"
-data_set_spreadsheet = "/home/sean/Documents/code/cross-dataset-diffexpr/bin/spreadsheet.csv"
 
 def ensemble_to_symbol(ensemble_id:str)->str:
     request_url = 'https://mygene.info/v3/gene/' + ensemble_id + '?fields=symbol&dotfield=True'
@@ -35,7 +36,7 @@ def find_h5ad_files(directory: Path) -> Iterable[Path]:
 
 def get_tissue_type(dataset:str, token:str)->str:
 
-    organ_dict = yaml.load(open('organ_types.yaml'), Loader=yaml.BaseLoader)
+    organ_dict = yaml.load(open('/opt/organ_types.yaml'), Loader=yaml.BaseLoader)
 
     dataset_query_dict = {
        "query": {
@@ -96,8 +97,8 @@ def annotate_file(file: Path, token:str)-> anndata.AnnData:
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
 
-    new_var_index = [ensemble_to_symbol(gene) for gene in adata.var.index]
-    adata.var.index = new_var_index
+#    new_var_index = [ensemble_to_symbol(gene) for gene in adata.var.index]
+#    adata.var.index = new_var_index
 
 #    return adata
     return adata.copy()
