@@ -5,9 +5,8 @@ from pathlib import Path
 
 import anndata
 import matplotlib.pyplot as plt
-import pandas as pd
 import scanpy as sc
-import numpy as np
+
 
 @contextmanager
 def new_plot():
@@ -34,8 +33,8 @@ def new_plot():
         plt.clf()
         plt.close()
 
-def main(h5ad_file: Path):
 
+def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
     adata.var_names_make_unique()
 
@@ -43,7 +42,7 @@ def main(h5ad_file: Path):
         sc.pl.umap(adata, color='batch')
         plt.savefig('umap_by_batch.pdf', bbox_inches='tight')
 
-    #Batch correction with bbknn and dimension reduction
+    # Batch correction with bbknn and dimension reduction
     sc.tl.pca(adata)
     sc.external.pp.bbknn(adata, batch_key='batch')
 
@@ -53,14 +52,14 @@ def main(h5ad_file: Path):
 
     sc.tl.umap(adata)
 
-    #leiden clustering
+    # leiden clustering
     sc.tl.leiden(adata)
 
     with new_plot():
         sc.pl.umap(adata, color='leiden')
         plt.savefig('umap_by_cluster.pdf', bbox_inches='tight')
 
-    #Write out as h5ad
+    # Write out as h5ad
     output_file = Path('bc_umap_cluster.h5ad')
     print('Saving output to', output_file.absolute())
     adata.write_h5ad(output_file)

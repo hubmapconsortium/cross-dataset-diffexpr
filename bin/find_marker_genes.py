@@ -10,6 +10,7 @@ import pandas as pd
 import scanpy as sc
 import numpy as np
 
+
 @contextmanager
 def new_plot():
     """
@@ -35,8 +36,8 @@ def new_plot():
         plt.clf()
         plt.close()
 
-def get_gene_rows(gene_groupings:Dict[str, List[str]], marker_gene_groupings:Dict[str, List[str]]):
 
+def get_gene_rows(gene_groupings: Dict[str, List[str]], marker_gene_groupings: Dict[str, List[str]]):
     gene_rows = []
 
     for gene in gene_groupings.keys():
@@ -46,12 +47,12 @@ def get_gene_rows(gene_groupings:Dict[str, List[str]], marker_gene_groupings:Dic
             marker_gene_list = marker_gene_groupings[gene]
         else:
             marker_gene_list = []
-        gene_rows.append({'gene_id':gene_id, 'groups':gene_list, 'marker_groups':marker_gene_list})
+        gene_rows.append({'gene_id': gene_id, 'groups': gene_list, 'marker_groups': marker_gene_list})
 
     return gene_rows
 
-def get_rows(adata:anndata.AnnData, groupings:List[str])->List[Dict]:
 
+def get_rows(adata: anndata.AnnData, groupings: List[str]) -> List[Dict]:
     cutoff = 0.9
     marker_cutoff = .001
 
@@ -59,12 +60,16 @@ def get_rows(adata:anndata.AnnData, groupings:List[str])->List[Dict]:
 
     cell_df = adata.obs.copy()
 
+    gene_groupings = {}
+    marker_gene_groupings = {}
+    group_rows = []
+
     for group_by in groupings:
-    #for each thing we want to group by
+        # for each thing we want to group by
 
         sc.tl.rank_genes_groups(adata, group_by, method='t-test', rankby_abs=True, n_genes=num_genes)
 
-        #get the group_ids and then the gene_names and scores for each
+        # get the group_ids and then the gene_names and scores for each
         for group_id in cell_df[group_by].unique():
 
             if type(group_id) == float and np.isnan(group_id):
@@ -91,15 +96,15 @@ def get_rows(adata:anndata.AnnData, groupings:List[str])->List[Dict]:
             genes = [n_p[0] for n_p in names_and_pvals if np[1] < cutoff]
             marker_genes = [n_p[0] for n_p in names_and_pvals if np[1] < marker_cutoff]
 
-            group_rows.append({'condition':condition, 'genes':genes, 'marker_genes':marker_genes})
+            group_rows.append({'condition': condition, 'genes': genes, 'marker_genes': marker_genes})
 
     gene_rows = get_gene_rows(gene_groupings, marker_gene_groupings)
 
     return group_rows, gene_rows
 
-def main(h5ad_file: Path):
 
-    adata = anndata.read_htad(h5ad_file)
+def main(h5ad_file: Path):
+    adata = anndata.read_h5ad(h5ad_file)
 
     groupings = ['cluster', 'dataset', 'tissue_type']
 
@@ -112,6 +117,7 @@ def main(h5ad_file: Path):
     cell_df.to_csv('rna.csv')
     group_df.to_csv('rna_group.csv')
     gene_df.to_csv('rna_gene.csv')
+
 
 if __name__ == '__main__':
     p = ArgumentParser()
