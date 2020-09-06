@@ -26,3 +26,9 @@ outputs:
     outputBinding:
       glob: "concatenated_annotated_data.h5ad"
     doc: Annotated, concatenated dataset in hdf5 format
+
+  gene_dictionary:
+    type: File
+    outputBinding:
+      glob: 'symbol_to_ensembl.json'
+    doc: Json file mapping from hugo symbols to versioned ensembl ids

@@ -5,7 +5,7 @@
 # Annotate each file/cell/cluster with the data set/tissue of origin -- for labeling the overall data set, you can add a new key to the .uns mapping in the AnnData object, other annotations would probably go in .obs
 
 # Concatenate all of the AnnData objects, ensuring that they have the same columns (genes, stored in AnnData.var) -- might need to expand each AnnData object if loading the filtered versions
-
+import json
 from argparse import ArgumentParser
 from functools import reduce
 from os import fspath, walk
@@ -21,7 +21,7 @@ pattern = "*out.h5ad"
 
 def ensembl_to_symbol(ensembl_id: str) -> str:
     ensembl_id = ensembl_id.split('.')[0]
-    request_url = 'https://mygene.info/v3/gene/' + ensembl_id + '?fields=symbol&dotfield=True'
+    request_url = 'https://mygene.info/v3/gene/' + ensembl_id.split('.')[0] + '?fields=symbol&dotfield=True'
     r = requests.get(request_url)
     return r.json()['symbol']
 
@@ -98,6 +98,9 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
 
+    symbol_to_ensembl_dict = {ensembl_to_symbol(ensembl_id):ensembl_id for ensembl_id in adata.var.index}
+    with open('symbol_to_ensembl.json') as gene_dictionary:
+        json.dump(symbol_to_ensembl_dict, gene_dictionary)
     new_var_index = [ensembl_to_symbol(gene) for gene in adata.var.index]
     adata.var.index = new_var_index
 
