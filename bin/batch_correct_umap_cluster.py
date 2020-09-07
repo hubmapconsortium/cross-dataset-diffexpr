@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import anndata
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import scanpy as sc
 
 
@@ -37,27 +37,24 @@ def new_plot():
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
     adata.var_names_make_unique()
-
-    with new_plot():
-        sc.pl.umap(adata, color='batch')
-        plt.savefig('umap_by_batch.pdf', bbox_inches='tight')
+#    with new_plot():
+#        sc.pl.umap(adata, color='batch')
+#        plt.savefig('umap_by_batch.pdf', bbox_inches='tight')
 
     # Batch correction with bbknn and dimension reduction
     sc.tl.pca(adata)
     sc.external.pp.bbknn(adata, batch_key='batch')
-
-    with new_plot():
-        sc.pl.umap(adata, color='batch')
-        plt.savefig('umap_batch_corrected_by_batch.pdf', bbox_inches='tight')
+#    with new_plot():
+#        sc.pl.umap(adata, color='batch')
+#        plt.savefig('umap_batch_corrected_by_batch.pdf', bbox_inches='tight')
 
     sc.tl.umap(adata)
-
     # leiden clustering
     sc.tl.leiden(adata)
 
-    with new_plot():
-        sc.pl.umap(adata, color='leiden')
-        plt.savefig('umap_by_cluster.pdf', bbox_inches='tight')
+#    with new_plot():
+#        sc.pl.umap(adata, color='leiden')
+#        plt.savefig('umap_by_cluster.pdf', bbox_inches='tight')
 
     # Write out as h5ad
     output_file = Path('bc_umap_cluster.h5ad')
