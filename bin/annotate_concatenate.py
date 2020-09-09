@@ -23,7 +23,11 @@ def ensembl_to_symbol(ensembl_id: str) -> str:
     ensembl_id = ensembl_id.split('.')[0]
     request_url = 'https://mygene.info/v3/gene/' + ensembl_id.split('.')[0] + '?fields=symbol&dotfield=True'
     r = requests.get(request_url)
-    return r.json()['symbol']
+    if 'symbol' in r.json().keys():
+        return r.json()['symbol']
+    else:
+        print(ensembl_id)
+        return ensembl_id
 
 
 def find_h5ad_files(directory: Path) -> Iterable[Path]:
@@ -75,7 +79,7 @@ def get_tissue_type(dataset: str, token: str) -> str:
     }
 
     dataset_response = requests.post(
-        'https://search-api.hubmapconsortium.org/search',
+        'https://search.api.hubmapconsortium.org/search',
         json=dataset_query_dict,
         headers={'Authorization': 'Bearer ' + token})
     hits = dataset_response.json()['hits']['hits']
