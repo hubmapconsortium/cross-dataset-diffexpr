@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 from functools import reduce
 from os import fspath, walk
 from pathlib import Path
-from typing import List, Iterable
+from typing import List, Iterable, Dict
 
 import anndata
 import requests
@@ -19,15 +19,38 @@ import yaml
 pattern = "*out.h5ad"
 
 
-def ensembl_to_symbol(ensembl_id: str) -> str:
-    ensembl_id = ensembl_id.split('.')[0]
-    request_url = 'https://mygene.info/v3/gene/' + ensembl_id.split('.')[0] + '?fields=symbol&dotfield=True'
-    r = requests.get(request_url)
-    if 'symbol' in r.json().keys():
-        return r.json()['symbol']
-    else:
-        print(ensembl_id)
-        return ensembl_id
+def get_gene_response(ensembl_ids: List[str]):
+    request_url = 'https://mygene.info/v3/gene?fields=symbol'
+
+    chunk_size = 1000
+    chunks = (len(ensembl_ids) // chunk_size) + 1
+
+    base_list = []
+
+    for i in range(chunks):
+        if i < chunks - 1:
+            ensembl_slice = ensembl_ids[i * chunk_size: (i + 1) * chunk_size]
+        else:
+            ensembl_slice = ensembl_ids[i * chunk_size:]
+        request_body = {'ids': ', '.join(ensembl_slice)}
+        base_list.extend(requests.post(request_url, request_body).json())
+
+    return base_list
+
+
+def get_gene_dicts(ensembl_ids: List[str]) -> (Dict, Dict):
+    #    temp_forwards_dict = {ensembl_id:ensembl_id.split('.')[0] for ensembl_id in ensembl_ids}
+    temp_backwards_dict = {ensembl_id.split('.')[0]: ensembl_id for ensembl_id in ensembl_ids}
+    ensembl_ids = [ensembl_id.split('.')[0] for ensembl_id in ensembl_ids]
+
+    json_response = get_gene_response(ensembl_ids)
+
+    forwards_dict = {temp_backwards_dict[item['query']]: item['symbol'] for item in json_response if
+                     'symbol' in item.keys()}
+    backwards_dict = {item['symbol']: temp_backwards_dict[item['query']] for item in json_response if
+                      'symbol' in item.keys()}
+
+    return forwards_dict, backwards_dict
 
 
 def find_h5ad_files(directory: Path) -> Iterable[Path]:
@@ -102,12 +125,6 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
 
-    symbol_to_ensembl_dict = {ensembl_to_symbol(ensembl_id):ensembl_id for ensembl_id in adata.var.index}
-    with open('symbol_to_ensembl.json') as gene_dictionary:
-        json.dump(symbol_to_ensembl_dict, gene_dictionary)
-    new_var_index = [ensembl_to_symbol(gene) for gene in adata.var.index]
-    adata.var.index = new_var_index
-
     #    return adata
     return adata.copy()
 
@@ -116,11 +133,35 @@ def outer_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.An
     return adata_1.concatenate(adata_2, join='outer', fill_value=0)
 
 
-def main(token: str, directories: List[Path]):
+def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/ensembl_to_symbol.json'),
+         symbol_to_ensembl_path=Path('/opt/symbol_to_ensembl.json')):
     # Load files
     h5ad_files = [directory / Path('out.h5ad') for directory in directories]
     annotated_files = [annotate_file(h5ad_file, token) for h5ad_file in h5ad_files]
     concatenated_file = reduce(outer_join, annotated_files)
+
+    symbol_to_ensembl_dict = {}
+    ensembl_to_symbol_dict = {}
+
+    var_columns = concatenated_file.var.index
+
+    if ensembl_to_symbol_path.exists():
+        with open(ensembl_to_symbol_path, 'r') as json_file:
+            ensembl_to_symbol_dict = json.load(json_file)
+        with open(symbol_to_ensembl_path, 'r') as json_file:
+            symbol_to_ensembl_dict = json.load(json_file)
+
+    else:
+        ensembl_to_symbol_dict, symbol_to_ensembl_dict = get_gene_dicts(var_columns)
+        with open('ensembl_to_symbol.json', 'w') as json_file:
+            json.dump(ensembl_to_symbol_dict, json_file)
+        with open('symbol_to_ensembl.json', 'w') as json_file:
+            json.dump(symbol_to_ensembl_dict, json_file)
+
+    keep_vars = [key for key in ensembl_to_symbol_dict.keys()]
+    concatenated_file = concatenated_file[:, keep_vars]
+
+    concatenated_file.var.index = [ensembl_to_symbol_dict[ensembl_id] for ensembl_id in concatenated_file.var.index]
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
 
