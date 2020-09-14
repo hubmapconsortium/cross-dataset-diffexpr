@@ -8,110 +8,14 @@
 import json
 from argparse import ArgumentParser
 from functools import reduce
-from os import fspath, walk
+from os import fspath
 from pathlib import Path
-from typing import List, Iterable, Dict
+from typing import List
+from cross_dataset_common import get_tissue_type, get_gene_dicts
 
 import anndata
-import requests
-import yaml
 
 pattern = "*out.h5ad"
-
-
-def get_gene_response(ensembl_ids: List[str]):
-    request_url = 'https://mygene.info/v3/gene?fields=symbol'
-
-    chunk_size = 1000
-    chunks = (len(ensembl_ids) // chunk_size) + 1
-
-    base_list = []
-
-    for i in range(chunks):
-        if i < chunks - 1:
-            ensembl_slice = ensembl_ids[i * chunk_size: (i + 1) * chunk_size]
-        else:
-            ensembl_slice = ensembl_ids[i * chunk_size:]
-        request_body = {'ids': ', '.join(ensembl_slice)}
-        base_list.extend(requests.post(request_url, request_body).json())
-
-    return base_list
-
-
-def get_gene_dicts(ensembl_ids: List[str]) -> (Dict, Dict):
-    #    temp_forwards_dict = {ensembl_id:ensembl_id.split('.')[0] for ensembl_id in ensembl_ids}
-    temp_backwards_dict = {ensembl_id.split('.')[0]: ensembl_id for ensembl_id in ensembl_ids}
-    ensembl_ids = [ensembl_id.split('.')[0] for ensembl_id in ensembl_ids]
-
-    json_response = get_gene_response(ensembl_ids)
-
-    forwards_dict = {temp_backwards_dict[item['query']]: item['symbol'] for item in json_response if
-                     'symbol' in item.keys()}
-    backwards_dict = {item['symbol']: temp_backwards_dict[item['query']] for item in json_response if
-                      'symbol' in item.keys()}
-
-    return forwards_dict, backwards_dict
-
-
-def find_h5ad_files(directory: Path) -> Iterable[Path]:
-    for dirpath_str, dirnames, filenames in walk(directory):
-        dirpath = Path(dirpath_str)
-        for filename in filenames:
-            filepath = dirpath / filename
-            if filepath.match(pattern):
-                yield filepath
-
-
-def get_tissue_type(dataset: str, token: str) -> str:
-    organ_dict = yaml.load(open('/opt/organ_types.yaml'), Loader=yaml.BaseLoader)
-
-    dataset_query_dict = {
-        "query": {
-            "bool": {
-                "must": [],
-                "filter": [
-                    {
-                        "match_all": {}
-                    },
-                    {
-                        "exists": {
-                            "field": "files.rel_path"
-                        }
-                    },
-                    {
-                        "match_phrase": {
-                            "uuid": {
-                                "query": dataset
-                            },
-                        }
-
-                    }
-                ],
-                "should": [],
-                "must_not": [
-                    {
-                        "match_phrase": {
-                            "status": {
-                                "query": "Error"
-                            }
-                        }
-                    }
-                ]
-            }
-        }
-    }
-
-    dataset_response = requests.post(
-        'https://search.api.hubmapconsortium.org/search',
-        json=dataset_query_dict,
-        headers={'Authorization': 'Bearer ' + token})
-    hits = dataset_response.json()['hits']['hits']
-
-    for hit in hits:
-        for ancestor in hit['_source']['ancestors']:
-            if 'organ' in ancestor.keys():
-                return organ_dict[ancestor['organ']]['description']
-
 
 def annotate_file(file: Path, token: str) -> anndata.AnnData:
     # Get the directory

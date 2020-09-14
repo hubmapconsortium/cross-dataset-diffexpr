@@ -43,7 +43,7 @@ def main(h5ad_file: Path):
 
     # Batch correction with bbknn and dimension reduction
     sc.tl.pca(adata)
-    sc.external.pp.bbknn(adata, batch_key='batch')
+    sc.external.pp.bbknn(adata, batch_key='dataset')
 #    with new_plot():
 #        sc.pl.umap(adata, color='batch')
 #        plt.savefig('umap_batch_corrected_by_batch.pdf', bbox_inches='tight')
