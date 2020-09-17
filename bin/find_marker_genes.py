@@ -35,6 +35,13 @@ def new_plot():
         plt.clf()
         plt.close()
 
+def add_quant_columns(df, adata):
+    quant_df = adata.to_df()
+    for column in quant_df.columns:
+        if(type(quant_df[column].to_numpy()[0]) == float):
+            df[column] = pd.Series(quant_df[column].to_numpy())
+    return df.copy()
+
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
 
@@ -43,8 +50,9 @@ def main(h5ad_file: Path):
     group_rows = get_rows(adata, groupings)
 
     cell_df = adata.obs.copy()
+    cell_df = add_quant_columns(cell_df, adata)
 
-    group_df = pd.DataFrame(group_rows)
+    group_df = pd.DataFrame(group_rows, dtype=object)
 
     cell_df.to_csv('rna.csv')
     group_df.to_csv('rna_group.csv')
