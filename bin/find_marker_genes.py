@@ -2,7 +2,7 @@
 from argparse import ArgumentParser
 from contextlib import contextmanager
 from pathlib import Path
-from cross_dataset_common import get_rows
+from cross_dataset_common import get_rows, add_quant_columns
 
 import anndata
 import matplotlib.pyplot as plt
@@ -35,12 +35,6 @@ def new_plot():
         plt.clf()
         plt.close()
 
-def add_quant_columns(df, adata):
-    quant_df = adata.to_df()
-    for column in quant_df.columns:
-        if(type(quant_df[column].to_numpy()[0]) == float):
-            df[column] = pd.Series(quant_df[column].to_numpy())
-    return df.copy()
 
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
