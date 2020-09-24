@@ -41,6 +41,8 @@ def main(h5ad_file: Path):
 
     groupings = ['leiden', 'dataset', 'tissue_type']
 
+    adata.obs['cell_id'] = adata.obs.index
+
     group_rows = get_rows(adata, groupings)
 
     cell_df = adata.obs.copy()
