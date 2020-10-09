@@ -12,7 +12,7 @@ inputs:
     inputBinding:
       position: 1
 outputs:
-  csv_files:
-    type: File[]
+  hdf5_file:
+    type: File
     outputBinding:
-      glob: "*.csv"
+      glob: "rna.hdf5"
