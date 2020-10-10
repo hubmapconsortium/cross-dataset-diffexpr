@@ -24,7 +24,7 @@ def main(h5ad_file: Path):
 
     group_df = pd.DataFrame(group_rows, dtype=object)
 
-    with pd.HDFStore('atac.hdf5') as store:
+    with pd.HDFStore('rna.hdf5') as store:
         store.put('cell', cell_df, format='t')
         store.put('group', group_df)
         store.put('quant', quant_df)
