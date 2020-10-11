@@ -36,6 +36,7 @@ def new_plot():
 
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
+    print(adata.X.shape)
     adata.var_names_make_unique()
 #    with new_plot():
 #        sc.pl.umap(adata, color='batch')
@@ -43,14 +44,19 @@ def main(h5ad_file: Path):
 
     # Batch correction with bbknn and dimension reduction
     sc.tl.pca(adata)
+    print(adata.X.shape)
     sc.external.pp.bbknn(adata, batch_key='dataset')
+    print(adata.X.shape)
 #    with new_plot():
 #        sc.pl.umap(adata, color='batch')
 #        plt.savefig('umap_batch_corrected_by_batch.pdf', bbox_inches='tight')
 
     sc.tl.umap(adata)
+
+    print(adata.X.shape)
     # leiden clustering
     sc.tl.leiden(adata)
+    print(adata.X.shape)
 
 #    with new_plot():
 #        sc.pl.umap(adata, color='leiden')

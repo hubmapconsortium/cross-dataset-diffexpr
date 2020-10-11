@@ -11,6 +11,7 @@ def get_quant_df(adata:anndata.AnnData)->pd.DataFrame:
 
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
+    print(adata.X.shape)
 
     groupings = ['leiden', 'dataset', 'tissue_type']
 
