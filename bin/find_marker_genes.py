@@ -7,6 +7,7 @@ import anndata
 import pandas as pd
 
 def get_quant_df(adata:anndata.AnnData)->pd.DataFrame:
+    print(adata.X.shape)
     return pd.DataFrame(adata.X, columns=adata.var.index, index=adata.obs.index)
 
 def main(h5ad_file: Path):
