@@ -34,7 +34,11 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
 
 
 def outer_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.AnnData:
-    return adata_1.concatenate(adata_2, join='outer', fill_value=0)
+    print(adata_1.X.shape)
+    print(adata_2.X.shape)
+    new_adata = adata_1.concatenate(adata_2, join='outer', fill_value=0)
+    print(new_adata.X.shape)
+    return new_adata
 
 
 def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/ensembl_to_symbol.json'),
