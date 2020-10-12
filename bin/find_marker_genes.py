@@ -6,9 +6,9 @@ from cross_dataset_common import get_rows, add_quant_columns
 import anndata
 import pandas as pd
 
-def get_quant_df(adata:anndata.AnnData)->pd.DataFrame:
+def get_quant_df(adata: anndata.AnnData) -> pd.DataFrame:
     print(adata.X.shape)
-    return pd.DataFrame(adata.X, columns=adata.var.index, index=adata.obs.index)
+    return pd.DataFrame(adata.X.todense(), columns=adata.var.index, index=adata.obs.index)
 
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
@@ -30,7 +30,6 @@ def main(h5ad_file: Path):
         store.put('cell', cell_df, format='t')
         store.put('group', group_df)
         store.put('quant', quant_df)
-
 
 if __name__ == '__main__':
     p = ArgumentParser()
