@@ -16,3 +16,8 @@ outputs:
     type: File
     outputBinding:
       glob: "rna.hdf5"
+
+  csv_file:
+    type: File
+    outputBinding:
+      glob: "long_rna_quant.csv"
