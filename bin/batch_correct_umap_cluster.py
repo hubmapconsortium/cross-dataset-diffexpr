@@ -4,10 +4,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import anndata
-import matplotlib.pyplot as plt
-import pandas as pd
+# import matplotlib.pyplot as plt
 import scanpy as sc
-import numpy as np
+
 
 @contextmanager
 def new_plot():
@@ -34,33 +33,36 @@ def new_plot():
         plt.clf()
         plt.close()
 
+
 def main(h5ad_file: Path):
-
     adata = anndata.read_h5ad(h5ad_file)
+    print(adata.X.shape)
     adata.var_names_make_unique()
+#    with new_plot():
+#        sc.pl.umap(adata, color='batch')
+#        plt.savefig('umap_by_batch.pdf', bbox_inches='tight')
 
-    with new_plot():
-        sc.pl.umap(adata, color='batch')
-        plt.savefig('umap_by_batch.pdf', bbox_inches='tight')
-
-    #Batch correction with bbknn and dimension reduction
+    # Batch correction with bbknn and dimension reduction
     sc.tl.pca(adata)
-    sc.external.pp.bbknn(adata, batch_key='batch')
-
-    with new_plot():
-        sc.pl.umap(adata, color='batch')
-        plt.savefig('umap_batch_corrected_by_batch.pdf', bbox_inches='tight')
+    print(adata.X.shape)
+    sc.external.pp.bbknn(adata, batch_key='dataset')
+    print(adata.X.shape)
+#    with new_plot():
+#        sc.pl.umap(adata, color='batch')
+#        plt.savefig('umap_batch_corrected_by_batch.pdf', bbox_inches='tight')
 
     sc.tl.umap(adata)
 
-    #leiden clustering
+    print(adata.X.shape)
+    # leiden clustering
     sc.tl.leiden(adata)
+    print(adata.X.shape)
 
-    with new_plot():
-        sc.pl.umap(adata, color='leiden')
-        plt.savefig('umap_by_cluster.pdf', bbox_inches='tight')
+#    with new_plot():
+#        sc.pl.umap(adata, color='leiden')
+#        plt.savefig('umap_by_cluster.pdf', bbox_inches='tight')
 
-    #Write out as h5ad
+    # Write out as h5ad
     output_file = Path('bc_umap_cluster.h5ad')
     print('Saving output to', output_file.absolute())
     adata.write_h5ad(output_file)

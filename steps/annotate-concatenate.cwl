@@ -15,14 +15,20 @@ inputs:
       position: 1
 
   data_directories:
-    type: string[]
+    type: Directory[]
     doc: List of paths to processed dataset directories
     inputBinding:
       position: 2
 
 outputs:
-  concatenated_file:
+  concatenated_annotated_file:
     type: File
     outputBinding:
       glob: "concatenated_annotated_data.h5ad"
     doc: Annotated, concatenated dataset in hdf5 format
+
+  gene_dictionaries:
+    type: File[]
+    outputBinding:
+      glob: '*.json'
+    doc: Json files mapping from hugo symbols to versioned ensembl ids
