@@ -30,7 +30,7 @@ def main(h5ad_file: Path):
     with pd.HDFStore('rna.hdf5') as store:
         store.put('cell', cell_df, format='t')
         store.put('organ', organ_df)
-        store.put('quant', quant_df)
+#        store.put('quant', quant_df)
         store.put('p_values', pval_df)
 
 if __name__ == '__main__':
