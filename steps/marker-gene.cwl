@@ -20,4 +20,4 @@ outputs:
   csv_file:
     type: File
     outputBinding:
-      glob: "long_rna_quant.csv"
+      glob: "rna.csv"
