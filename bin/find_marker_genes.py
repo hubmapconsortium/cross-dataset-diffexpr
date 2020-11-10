@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
 from pathlib import Path
-from cross_dataset_common import get_pval_dfs, flatten_quant_df
-
+from cross_dataset_common import get_pval_dfs, make_quant_csv
 import anndata
 import pandas as pd
-
-def get_quant_df(adata: anndata.AnnData) -> pd.DataFrame:
-    print(adata.X.shape)
-    return pd.DataFrame(adata.X.todense(), columns=adata.var.index, index=adata.obs.index)
-
 
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
@@ -19,10 +13,7 @@ def main(h5ad_file: Path):
 
     cell_df = adata.obs.copy()
 
-    quant_df = get_quant_df(adata)
-
-    long_df = flatten_quant_df(quant_df)
-    long_df.to_csv('rna.csv')
+    make_quant_csv(adata, 'rna')
 
     with pd.HDFStore('rna.hdf5') as store:
         store.put('cell', cell_df, format='t')
