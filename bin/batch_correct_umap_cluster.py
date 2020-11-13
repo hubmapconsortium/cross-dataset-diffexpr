@@ -58,6 +58,8 @@ def main(h5ad_file: Path):
     sc.tl.leiden(adata)
     print(adata.X.shape)
 
+    adata.obs['leiden'] = 'rna-' + adata.obs['leiden'].astype(str)
+
 #    with new_plot():
 #        sc.pl.umap(adata, color='leiden')
 #        plt.savefig('umap_by_cluster.pdf', bbox_inches='tight')

@@ -28,6 +28,7 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
     adata.obs['dataset'] = data_set_dir
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
+    adata.obs['cell_id'] = data_set_dir + adata.obs.index
 
     #    return adata
     return adata.copy()
