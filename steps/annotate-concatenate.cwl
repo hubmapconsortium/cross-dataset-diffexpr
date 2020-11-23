@@ -27,6 +27,12 @@ outputs:
       glob: "concatenated_annotated_data.h5ad"
     doc: Annotated, concatenated dataset in hdf5 format
 
+  old_cluster_file:
+    type: File
+    outputBinding:
+      glob: "cluster.hdf5"
+    doc: Hdf file containing old cluster p values
+
   gene_dictionaries:
     type: File[]
     outputBinding:

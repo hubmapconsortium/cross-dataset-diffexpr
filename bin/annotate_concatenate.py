@@ -11,9 +11,10 @@ from functools import reduce
 from os import fspath
 from pathlib import Path
 from typing import List
-from cross_dataset_common import get_tissue_type, get_gene_dicts
+from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df
 
 import anndata
+import pandas as pd
 
 pattern = "*out.h5ad"
 
@@ -47,6 +48,12 @@ def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/
     # Load files
     h5ad_files = [directory / Path('out.h5ad') for directory in directories]
     annotated_files = [annotate_file(h5ad_file, token) for h5ad_file in h5ad_files]
+    cluster_dfs = [get_cluster_df(annotated_file) for annotated_file in annotated_files]
+    cluster_df = pd.concat(cluster_dfs)
+
+    with pd.HDFStore('clusters.hdf5') as store:
+        store.put('cluster', cluster_df)
+
     concatenated_file = reduce(outer_join, annotated_files)
 
     symbol_to_ensembl_dict = {}
