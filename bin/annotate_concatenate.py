@@ -11,12 +11,18 @@ from functools import reduce
 from os import fspath
 from pathlib import Path
 from typing import List
-from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df
+from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id
 
 import anndata
 import pandas as pd
 
 pattern = "*out.h5ad"
+
+def get_cluster_assignments(h5ad_file):
+    cluster_file = [file for file in h5ad_file.parent.iterdir() if file.stem in ['cluster_marker_genes.h5ad', 'secondary_analysis.h5ad']][0]
+    adata = anndata.read_h5ad(cluster_file)
+    return adata.obs['leiden']
+
 
 def annotate_file(file: Path, token: str) -> anndata.AnnData:
     # Get the directory
@@ -26,10 +32,13 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
 
     # Add both to uns
     adata = anndata.read_h5ad(file)
+    adata.obs['barcode'] = adata.obs.index
     adata.obs['dataset'] = data_set_dir
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
-    adata.obs['cell_id'] = data_set_dir + adata.obs.index
+    semantic_cell_ids = data_set_dir + adata.obs.index
+    adata.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
+    adata.obs['leiden'] = get_cluster_assignments(file)
 
     #    return adata
     return adata.copy()
@@ -38,7 +47,7 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
 def outer_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.AnnData:
     print(adata_1.X.shape)
     print(adata_2.X.shape)
-    new_adata = adata_1.concatenate(adata_2, join='outer', fill_value=0)
+    new_adata = adata_1.concatenate(adata_2, join='inner', fill_value=0)
     print(new_adata.X.shape)
     return new_adata
 
@@ -50,6 +59,7 @@ def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/
     annotated_files = [annotate_file(h5ad_file, token) for h5ad_file in h5ad_files]
     cluster_dfs = [get_cluster_df(annotated_file) for annotated_file in annotated_files]
     cluster_df = pd.concat(cluster_dfs)
+
 
     with pd.HDFStore('clusters.hdf5') as store:
         store.put('cluster', cluster_df)
