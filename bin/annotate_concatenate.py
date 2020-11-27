@@ -15,13 +15,17 @@ from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df
 
 import anndata
 import pandas as pd
+import scanpy as sc
 
 pattern = "*out.h5ad"
 
-def get_cluster_assignments(h5ad_file):
-    cluster_file = [file for file in h5ad_file.parent.iterdir() if file.stem in ['cluster_marker_genes.h5ad', 'secondary_analysis.h5ad']][0]
+def get_cluster_adata(h5ad_file):
+    dataset = h5ad_file.parent.stem
+    cluster_file = [file for file in h5ad_file.parent.iterdir() if file.stem in ['cluster_marker_genes', 'secondary_analysis']][0]
     adata = anndata.read_h5ad(cluster_file)
-    return adata.obs['leiden']
+    adata.obs['dataset'] = dataset
+
+    return adata
 
 
 def annotate_file(file: Path, token: str) -> anndata.AnnData:
@@ -38,7 +42,8 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
     adata.obs['modality'] = 'rna'
     semantic_cell_ids = data_set_dir + adata.obs.index
     adata.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
-    adata.obs['leiden'] = get_cluster_assignments(file)
+    cluster_adata = get_cluster_adata(file)
+    adata.obs['leiden'] = cluster_adata.obs['leiden']
 
     #    return adata
     return adata.copy()
@@ -57,11 +62,14 @@ def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/
     # Load files
     h5ad_files = [directory / Path('out.h5ad') for directory in directories]
     annotated_files = [annotate_file(h5ad_file, token) for h5ad_file in h5ad_files]
-    cluster_dfs = [get_cluster_df(annotated_file) for annotated_file in annotated_files]
+    cluster_adatas = [get_cluster_adata(h5ad_file) for h5ad_file in h5ad_files]
+    for cluster_adata in cluster_adatas:
+        sc.tl.rank_genes_groups(cluster_adata, 'leiden', method='t-test', rankby_abs=True)
+    cluster_dfs = [get_cluster_df(adata) for adata in cluster_adatas]
     cluster_df = pd.concat(cluster_dfs)
 
 
-    with pd.HDFStore('clusters.hdf5') as store:
+    with pd.HDFStore('cluster.hdf5') as store:
         store.put('cluster', cluster_df)
 
     concatenated_file = reduce(outer_join, annotated_files)
