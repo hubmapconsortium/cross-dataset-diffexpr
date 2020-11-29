@@ -27,3 +27,13 @@ outputs:
     type: File
     outputBinding:
       glob: "rna.csv"
+
+  mini_hdf5_file:
+    type: File
+    outputBinding:
+      glob: "mini_rna.hdf5"
+
+  mini_csv_file:
+    type: File
+    outputBinding:
+      glob: "mini_rna.csv"

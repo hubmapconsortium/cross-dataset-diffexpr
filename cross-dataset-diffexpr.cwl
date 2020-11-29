@@ -34,6 +34,12 @@ outputs:
   gene_dictionaries:
     outputSource: annotate-concatenate/gene_dictionaries
     type: File[]
+  mini_hdf5_file:
+    outputSource: marker-gene/mini_hdf5_file
+    type: File
+  mini_csv_file:
+    outputSource: marker-gene/mini_csv_file
+    type: File
 
 steps:
 
@@ -72,6 +78,8 @@ steps:
     out:
       - hdf5_file
       - csv_file
+      - mini_hdf5_file
+      - mini_csv_file
 
     run: steps/marker-gene.cwl
     label: "Cross dataset secondary analysis via ScanPy, including marker gene analysis"
