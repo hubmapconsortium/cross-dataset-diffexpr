@@ -8,7 +8,7 @@
 import json
 from argparse import ArgumentParser
 from functools import reduce
-from os import fspath
+from os import fspath, walk
 from pathlib import Path
 from typing import List
 from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id
@@ -17,18 +17,22 @@ import anndata
 import pandas as pd
 import scanpy as sc
 
-pattern = "*out.h5ad"
+
+def find_cluster_files(directory):
+    pattern_one = 'cluster_marker_genes.h5ad'
+    pattern_two = 'secondary_analysis.h5ad'
+    for dirpath_str, dirnames, filenames in walk(directory):
+        dirpath = Path(dirpath_str)
+        for filename in filenames:
+            filepath = dirpath / filename
+            if filepath.match(pattern_one) or filepath.match(pattern_two):
+                yield filepath
 
 def get_cluster_adata(h5ad_file):
-    dataset = h5ad_file.parent.stem
-    cluster_path = h5ad_file.parent / Path('cluster_marker_genes/cluster_marker_genes.h5ad')
-
-    if cluster_path.exists():
-        adata = anndata.read_h5ad(cluster_path)
-
-    else:
-        cluster_file = [file for file in h5ad_file.parent.iterdir() if file.stem in ['cluster_marker_genes', 'secondary_analysis']][0]
-        adata = anndata.read_h5ad(cluster_file)
+    directory = h5ad_file.parent
+    dataset = directory.stem
+    cluster_file = find_cluster_files(directory)[0]
+    adata = anndata.read_h5ad(cluster_file)
 
     adata.obs['dataset'] = dataset
 
