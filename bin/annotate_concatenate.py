@@ -21,12 +21,18 @@ pattern = "*out.h5ad"
 
 def get_cluster_adata(h5ad_file):
     dataset = h5ad_file.parent.stem
-    cluster_file = [file for file in h5ad_file.parent.iterdir() if file.stem in ['cluster_marker_genes', 'secondary_analysis']][0]
-    adata = anndata.read_h5ad(cluster_file)
+    cluster_path = h5ad_file.parent / Path('cluster_marker_genes/cluster_marker_genes.h5ad')
+
+    if cluster_path.exists():
+        adata = anndata.read_h5ad(cluster_path)
+
+    else:
+        cluster_file = [file for file in h5ad_file.parent.iterdir() if file.stem in ['cluster_marker_genes', 'secondary_analysis']][0]
+        adata = anndata.read_h5ad(cluster_file)
+
     adata.obs['dataset'] = dataset
 
     return adata
-
 
 def annotate_file(file: Path, token: str) -> anndata.AnnData:
     # Get the directory

@@ -54,11 +54,14 @@ def main(h5ad_file: Path):
     sc.tl.umap(adata)
 
     adata.obs['dataset_leiden'] = adata.obs['leiden']
-    adata.obs.drop('leiden', axis=1)
+    print('leiden' in adata.obs.columns)
+    adata.obs = adata.obs.drop('leiden', axis=1, inplace=False)
+    print('leiden' in adata.obs.columns)
 
     print(adata.X.shape)
     # leiden clustering
     sc.tl.leiden(adata)
+    print('leiden' in adata.obs.columns)
     print(adata.X.shape)
 
 #    with new_plot():
