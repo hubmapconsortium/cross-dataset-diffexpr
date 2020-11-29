@@ -31,7 +31,7 @@ def find_cluster_files(directory):
 def get_cluster_adata(h5ad_file):
     directory = h5ad_file.parent
     dataset = directory.stem
-    cluster_file = find_cluster_files(directory)[0]
+    cluster_file = [file for file in find_cluster_files(directory)][0]
     adata = anndata.read_h5ad(cluster_file)
 
     adata.obs['dataset'] = dataset
