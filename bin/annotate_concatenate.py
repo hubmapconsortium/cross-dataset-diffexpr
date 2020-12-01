@@ -18,37 +18,44 @@ import pandas as pd
 import scanpy as sc
 import numpy as np
 
-def find_files(directory):
-    pattern_one = 'cluster_marker_genes.h5ad'
-    pattern_two = 'secondary_analysis.h5ad'
+def find_files(directory, patterns):
     for dirpath_str, dirnames, filenames in walk(directory):
         dirpath = Path(dirpath_str)
         for filename in filenames:
             filepath = dirpath / filename
-            if filepath.match(pattern_one) or filepath.match(pattern_two):
-                yield filepath
+            for pattern in patterns:
+                if filepath.match(pattern):
+                    return filepath
 
-def annotate_file(file: Path, token: str) -> anndata.AnnData:
+def find_file_pairs(directory):
+    filtered_patterns = ['cluster_marker_genes.h5ad', 'secondary_analysis.h5ad']
+    unfiltered_patterns = ['out.h5ad']
+    filtered_file = find_files(directory, filtered_patterns)
+    unfiltered_file = find_files(directory, unfiltered_patterns)
+    return filtered_file, unfiltered_file
+
+def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> anndata.AnnData:
     # Get the directory
-    data_set_dir = fspath(file.parent.stem)
+    data_set_dir = fspath(unfiltered_file.parent.stem)
     # And the tissue type
     tissue_type = get_tissue_type(data_set_dir, token)
 
-    adata = anndata.read_h5ad(file)
+    filtered_adata = anndata.read_h5ad(filtered_file)
+    unfiltered_adata = anndata.read_h5ad(unfiltered_file)
 
-    #Undo log scaling on X
-    adata.X = np.exp(adata.X)
-    adata.X = adata.X - 1
+    cells = filtered_adata.obs_keys()
+    unfiltered_subset = unfiltered_adata[cells,:].copy()
+    unfiltered_subset.obs = filtered_adata.obs
 
-    adata.obs['barcode'] = adata.obs.index
-    adata.obs['dataset'] = data_set_dir
-    adata.obs['tissue_type'] = tissue_type
-    adata.obs['modality'] = 'rna'
-    semantic_cell_ids = data_set_dir + adata.obs.index
-    adata.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
+    unfiltered_subset.obs['barcode'] = unfiltered_subset.obs.index
+    unfiltered_subset.obs['dataset'] = data_set_dir
+    unfiltered_subset.obs['tissue_type'] = tissue_type
+    unfiltered_subset.obs['modality'] = 'rna'
+    semantic_cell_ids = data_set_dir + unfiltered_subset.obs.index
+    unfiltered_subset.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
 
     #    return adata
-    return adata.copy()
+    return unfiltered_subset.copy()
 
 def inner_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.AnnData:
     print(adata_1.X.shape)
@@ -61,8 +68,8 @@ def inner_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.An
 def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/ensembl_to_symbol.json'),
          symbol_to_ensembl_path=Path('/opt/symbol_to_ensembl.json')):
     # Load files
-    h5ad_files = [[file for file in find_files(directory)][0] for directory in directories]
-    annotated_files = [annotate_file(h5ad_file, token) for h5ad_file in h5ad_files]
+    file_pairs = [find_file_pairs(directory) for directory in directories]
+    annotated_files = [annotate_file(file_pair[0],file_pair[1], token) for file_pair in file_pairs]
     for adata in annotated_files:
         sc.tl.rank_genes_groups(adata, 'leiden', method='t-test', rankby_abs=True)
     cluster_dfs = [get_cluster_df(adata) for adata in annotated_files]
