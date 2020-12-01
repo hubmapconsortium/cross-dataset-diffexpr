@@ -50,10 +50,10 @@ def annotate_file(file: Path, token: str) -> anndata.AnnData:
     adata.obs['dataset'] = data_set_dir
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
-    semantic_cell_ids = data_set_dir + adata.obs.index
-    adata.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
     cluster_adata = get_cluster_adata(file)
     adata.obs['leiden'] = cluster_adata.obs['leiden']
+    semantic_cell_ids = data_set_dir + adata.obs.index
+    adata.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
 
     #    return adata
     return adata.copy()
