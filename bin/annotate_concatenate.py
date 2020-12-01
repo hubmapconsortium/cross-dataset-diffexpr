@@ -16,9 +16,9 @@ from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df
 import anndata
 import pandas as pd
 import scanpy as sc
+import numpy as np
 
-
-def find_cluster_files(directory):
+def find_files(directory):
     pattern_one = 'cluster_marker_genes.h5ad'
     pattern_two = 'secondary_analysis.h5ad'
     for dirpath_str, dirnames, filenames in walk(directory):
@@ -28,38 +28,29 @@ def find_cluster_files(directory):
             if filepath.match(pattern_one) or filepath.match(pattern_two):
                 yield filepath
 
-def get_cluster_adata(h5ad_file):
-    directory = h5ad_file.parent
-    dataset = directory.stem
-    cluster_file = [file for file in find_cluster_files(directory)][0]
-    adata = anndata.read_h5ad(cluster_file)
-
-    adata.obs['dataset'] = dataset
-
-    return adata
-
 def annotate_file(file: Path, token: str) -> anndata.AnnData:
     # Get the directory
     data_set_dir = fspath(file.parent.stem)
     # And the tissue type
     tissue_type = get_tissue_type(data_set_dir, token)
 
-    # Add both to uns
     adata = anndata.read_h5ad(file)
+
+    #Undo log scaling on X
+    adata.X = np.exp(adata.X)
+    adata.X = adata.X - 1
+
     adata.obs['barcode'] = adata.obs.index
     adata.obs['dataset'] = data_set_dir
     adata.obs['tissue_type'] = tissue_type
     adata.obs['modality'] = 'rna'
-    cluster_adata = get_cluster_adata(file)
-    adata.obs['leiden'] = cluster_adata.obs['leiden']
     semantic_cell_ids = data_set_dir + adata.obs.index
     adata.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
 
     #    return adata
     return adata.copy()
 
-
-def outer_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.AnnData:
+def inner_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.AnnData:
     print(adata_1.X.shape)
     print(adata_2.X.shape)
     new_adata = adata_1.concatenate(adata_2, join='inner', fill_value=0)
@@ -70,19 +61,18 @@ def outer_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.An
 def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/ensembl_to_symbol.json'),
          symbol_to_ensembl_path=Path('/opt/symbol_to_ensembl.json')):
     # Load files
-    h5ad_files = [directory / Path('out.h5ad') for directory in directories]
+    h5ad_files = [[file for file in find_files(directory)][0] for directory in directories]
     annotated_files = [annotate_file(h5ad_file, token) for h5ad_file in h5ad_files]
-    cluster_adatas = [get_cluster_adata(h5ad_file) for h5ad_file in h5ad_files]
-    for cluster_adata in cluster_adatas:
-        sc.tl.rank_genes_groups(cluster_adata, 'leiden', method='t-test', rankby_abs=True)
-    cluster_dfs = [get_cluster_df(adata) for adata in cluster_adatas]
+    for adata in annotated_files:
+        sc.tl.rank_genes_groups(adata, 'leiden', method='t-test', rankby_abs=True)
+    cluster_dfs = [get_cluster_df(adata) for adata in annotated_files]
     cluster_df = pd.concat(cluster_dfs)
 
 
     with pd.HDFStore('cluster.hdf5') as store:
         store.put('cluster', cluster_df)
 
-    concatenated_file = reduce(outer_join, annotated_files)
+    concatenated_file = reduce(inner_join, annotated_files)
 
     symbol_to_ensembl_dict = {}
     ensembl_to_symbol_dict = {}
