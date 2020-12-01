@@ -43,7 +43,7 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> ann
     filtered_adata = anndata.read_h5ad(filtered_file)
     unfiltered_adata = anndata.read_h5ad(unfiltered_file)
 
-    cells = filtered_adata.obs_keys()
+    cells = list(filtered_adata.obs.index)
     unfiltered_subset = unfiltered_adata[cells,:].copy()
     unfiltered_subset.obs = filtered_adata.obs
 
