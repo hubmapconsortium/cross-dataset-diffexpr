@@ -53,7 +53,7 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> ann
     unfiltered_subset.obs['modality'] = 'rna'
     semantic_cell_ids = data_set_dir + unfiltered_subset.obs.index
     unfiltered_subset.obs.set_index(semantic_cell_ids, inplace=True)
-    unfiltered_subset.obs['cell_id'] = hash_cell_id(semantic_cell_ids)
+    unfiltered_subset.obs['cell_id'] = pd.Series(hash_cell_id(semantic_cell_ids))
     unfiltered_subset.obs.set_index('cell_id', drop=False, inplace=True)
 
     #    return adata
