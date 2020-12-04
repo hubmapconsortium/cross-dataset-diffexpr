@@ -7,7 +7,7 @@ import pandas as pd
 
 def percent_zero(df:pd.DataFrame)->float:
     zero_df = df[df['value'] == 0.0]
-    print(float(len(zero_df.index) / len(df.index)))
+    return float(len(zero_df.index) / len(df.index))
 
 def main(h5ad_file: Path, old_cluster_file:Path):
     adata = anndata.read_h5ad(h5ad_file)
@@ -32,7 +32,7 @@ def main(h5ad_file: Path, old_cluster_file:Path):
     print('Unadjusted cluster df')
     print(percent_zero(cluster_df))
     print('Adjusted cluster df')
-    print(percent_zero(adj_organ_df))
+    print(percent_zero(adj_cluster_df))
 
     cluster_df = pd.concat([old_cluster_df, cluster_df])
 
