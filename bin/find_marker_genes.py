@@ -14,12 +14,16 @@ def main(h5ad_file: Path, old_cluster_file:Path):
     quant_df = make_quant_df(adata)
     quant_df.to_csv('rna.csv')
 
-    organ_df, cluster_df = get_pval_dfs(adata)
+    organ_df, cluster_df = get_pval_dfs(adata, 'rna')
+
+    print(cluster_df['dataset'].unique())
 
     with pd.HDFStore(old_cluster_file) as store:
         old_cluster_df = store.get('cluster')
 
     cluster_df = pd.concat([old_cluster_df, cluster_df])
+
+    print(cluster_df['dataset'].unique())
 
     with pd.HDFStore('rna.hdf5') as store:
         store.put('cell', cell_df, format='t')

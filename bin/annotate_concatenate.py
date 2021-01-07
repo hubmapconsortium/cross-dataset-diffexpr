@@ -51,7 +51,7 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> ann
     unfiltered_subset.obs['dataset'] = data_set_dir
     unfiltered_subset.obs['tissue_type'] = tissue_type
     unfiltered_subset.obs['modality'] = 'rna'
-    semantic_cell_ids = data_set_dir + unfiltered_subset.obs.index
+    semantic_cell_ids = data_set_dir + '-'+ unfiltered_subset.obs.index
     unfiltered_subset.obs.set_index(semantic_cell_ids, inplace=True)
     unfiltered_subset.obs['cell_id'] = pd.Series(hash_cell_id(semantic_cell_ids))
     unfiltered_subset.obs.set_index('cell_id', drop=False, inplace=True)
@@ -73,7 +73,7 @@ def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/
     file_pairs = [find_file_pairs(directory) for directory in directories]
     annotated_files = [annotate_file(file_pair[0],file_pair[1], token) for file_pair in file_pairs]
     for adata in annotated_files:
-        sc.tl.rank_genes_groups(adata, 'leiden', method='t-test', rankby_abs=True)
+        sc.tl.rank_genes_groups(adata, 'leiden', method='t-test', rankby_abs=True, n_genes=len(adata.var.index))
     cluster_dfs = [get_cluster_df(adata) for adata in annotated_files]
     cluster_df = pd.concat(cluster_dfs)
 
