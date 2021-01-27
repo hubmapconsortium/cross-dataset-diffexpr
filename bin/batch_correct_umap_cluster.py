@@ -51,6 +51,18 @@ def main(h5ad_file: Path):
 #        sc.pl.umap(adata, color='batch')
 #        plt.savefig('umap_batch_corrected_by_batch.pdf', bbox_inches='tight')
 
+
+    # add the total counts per cell as observations-annotation to adata
+    adata.obs["n_counts"] = adata.X.sum(axis=1)
+
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+    sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=5, min_disp=0)
+
+    sc.pp.scale(adata, max_value=10)
+    sc.pp.pca(adata, n_comps=50)
+    sc.pp.neighbors(adata, n_neighbors=50, n_pcs=50)
+
     sc.tl.umap(adata)
 
     adata.obs['dataset_leiden'] = adata.obs['leiden']

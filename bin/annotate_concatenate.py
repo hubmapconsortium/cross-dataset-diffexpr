@@ -12,6 +12,8 @@ from os import fspath, walk
 from pathlib import Path
 from typing import List
 from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id
+from hubmap_cell_id_gen_py import get_sequencing_cell_id
+
 
 import anndata
 import pandas as pd
@@ -51,10 +53,9 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> ann
     unfiltered_subset.obs['dataset'] = data_set_dir
     unfiltered_subset.obs['tissue_type'] = tissue_type
     unfiltered_subset.obs['modality'] = 'rna'
-    semantic_cell_ids = data_set_dir + '-'+ unfiltered_subset.obs.index
+    semantic_cell_ids = [get_sequencing_cell_id(data_set_dir, barcode) for barcode in unfiltered_subset.obs['barcode']]
     unfiltered_subset.obs.set_index(semantic_cell_ids, inplace=True)
     unfiltered_subset.obs['cell_id'] = pd.Series(semantic_cell_ids)
-#    unfiltered_subset.obs['cell_id'] = pd.Series(hash_cell_id(semantic_cell_ids))
     unfiltered_subset.obs.set_index('cell_id', drop=False, inplace=True)
 
     #    return adata
