@@ -71,6 +71,9 @@ def inner_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.An
 
 def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/ensembl_to_symbol.json'),
          symbol_to_ensembl_path=Path('/opt/symbol_to_ensembl.json')):
+
+    if token == "None":
+        token = None
     # Load files
     file_pairs = [find_file_pairs(directory) for directory in directories]
     annotated_files = [annotate_file(file_pair[0],file_pair[1], token) for file_pair in file_pairs]
