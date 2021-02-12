@@ -1,1 +1,2 @@
-hubmap/cross-dataset-scanpy	docker/Dockerfile	base_directory_build
+hubmap/cross-dataset-scanpy-combat	docker/combat/Dockerfile	base_directory_build
+hubmap/cross-dataset-scanpy-rank-genes	docker/rank-genes/Dockerfile	base_directory_build
