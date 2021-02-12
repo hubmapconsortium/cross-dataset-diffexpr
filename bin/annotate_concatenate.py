@@ -56,7 +56,7 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> ann
     semantic_cell_ids = [get_sequencing_cell_id(data_set_dir, barcode) for barcode in unfiltered_subset.obs['barcode']]
     unfiltered_subset.obs.set_index(semantic_cell_ids, inplace=True)
     unfiltered_subset.obs['cell_id'] = pd.Series(semantic_cell_ids)
-    unfiltered_subset.obs.set_index('cell_id', drop=True, inplace=True)
+    unfiltered_subset.obs.set_index('cell_id', drop=False, inplace=True)
 
     #    return adata
     return unfiltered_subset.copy()

@@ -3,7 +3,7 @@ class: CommandLineTool
 label: Marker gene analysis
 hints:
   DockerRequirement:
-    dockerPull: hubmap/cross-dataset-scanpy-rank-genes:latest
+    dockerPull: hubmap/cross-dataset-scanpy:latest
 baseCommand: /opt/find_marker_genes.py
 
 inputs:

@@ -4,7 +4,7 @@ label: Annotates each h5ad file with dataset and tissue type, then concatenates
 
 hints:
   DockerRequirement:
-    dockerPull: hubmap/cross-dataset-scanpy-combat:latest
+    dockerPull: hubmap/cross-dataset-scanpy:latest
 baseCommand: /opt/annotate_concatenate.py
 
 inputs:
