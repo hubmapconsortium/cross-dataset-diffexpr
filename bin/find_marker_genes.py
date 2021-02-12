@@ -7,6 +7,7 @@ import pandas as pd
 
 def main(h5ad_file: Path, old_cluster_file:Path):
     adata = anndata.read_h5ad(h5ad_file)
+    adata.obs['cell_id'] = adata.obs.index
 
     cell_df = adata.obs.copy()
     cell_df = cell_df[['cell_id', 'barcode', 'dataset', 'tissue_type', 'modality', 'dataset_leiden', 'leiden']].astype(str)
