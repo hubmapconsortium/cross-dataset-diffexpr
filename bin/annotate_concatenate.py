@@ -7,18 +7,22 @@
 # Concatenate all of the AnnData objects, ensuring that they have the same columns (genes, stored in AnnData.var) -- might need to expand each AnnData object if loading the filtered versions
 import json
 from argparse import ArgumentParser
-from functools import reduce
 from os import fspath, walk
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Tuple
 from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id
-from hubmap_cell_id_gen_py import get_sequencing_cell_id
-
 
 import anndata
 import pandas as pd
 import scanpy as sc
-import numpy as np
+
+CELL_GY_GENE_FILENAME = 'cell_by_gene.hdf5'
+CELL_CLUSTER_FILENAME = 'umap_coords_clusters.csv'
+
+GENE_MAPPING_DIRECTORIES = [
+    Path(__file__).parent.parent / 'data',
+    Path('/opt/data'),
+]
 
 def find_files(directory, patterns):
     for dirpath_str, dirnames, filenames in walk(directory):
@@ -36,7 +40,7 @@ def find_file_pairs(directory):
     unfiltered_file = find_files(directory, unfiltered_patterns)
     return filtered_file, unfiltered_file
 
-def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> anndata.AnnData:
+def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> Tuple[anndata.AnnData, anndata.AnnData]:
     # Get the directory
     data_set_dir = fspath(unfiltered_file.parent.stem)
     # And the tissue type
@@ -45,71 +49,76 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> ann
     filtered_adata = anndata.read_h5ad(filtered_file)
     unfiltered_adata = anndata.read_h5ad(unfiltered_file)
 
+    filtered_adata.obs['barcode'] = filtered_adata.obs.index
+    filtered_adata.obs['dataset'] = data_set_dir
+    filtered_adata.obs['organ'] = tissue_type
+    filtered_adata.obs['modality'] = 'rna'
+
     cells = list(filtered_adata.obs.index)
     unfiltered_subset = unfiltered_adata[cells,:].copy()
     unfiltered_subset.obs = filtered_adata.obs
 
-    unfiltered_subset.obs['barcode'] = unfiltered_subset.obs.index
-    unfiltered_subset.obs['dataset'] = data_set_dir
-    unfiltered_subset.obs['tissue_type'] = tissue_type
-    unfiltered_subset.obs['modality'] = 'rna'
-    semantic_cell_ids = [get_sequencing_cell_id(data_set_dir, barcode) for barcode in unfiltered_subset.obs['barcode']]
-    unfiltered_subset.obs.set_index(semantic_cell_ids, inplace=True)
-    unfiltered_subset.obs['cell_id'] = pd.Series(semantic_cell_ids)
-    unfiltered_subset.obs.set_index('cell_id', drop=True, inplace=True)
+    return unfiltered_subset.copy(), filtered_adata
 
-    #    return adata
-    return unfiltered_subset.copy()
+def read_gene_mapping() -> Dict[str, str]:
+    """
+    Try to find the Ensembl to HUGO symbol mapping, with paths suitable
+    for running this script inside and outside a Docker container.
+    :return:
+    """
+    for directory in GENE_MAPPING_DIRECTORIES:
+        mapping_file = directory / 'ensembl_to_symbol.json'
+        if mapping_file.is_file():
+            with open(mapping_file) as f:
+                return json.load(f)
+    message_pieces = ["Couldn't find Ensembl → HUGO mapping file. Tried:"]
+    message_pieces.extend(f'\t{path}' for path in GENE_MAPPING_DIRECTORIES)
+    raise ValueError('\n'.join(message_pieces))
 
-def inner_join(adata_1: anndata.AnnData, adata_2: anndata.AnnData) -> anndata.AnnData:
-    print(adata_1.X.shape)
-    print(adata_2.X.shape)
-    new_adata = adata_1.concatenate(adata_2, join='inner', fill_value=0)
-    print(new_adata.X.shape)
-    return new_adata
+def map_gene_ids(adata):
+    gene_mapping = read_gene_mapping()
+    keep_vars = [gene in gene_mapping for gene in adata.var.index]
+    adata = adata[:, keep_vars]
+    temp_df = pd.DataFrame(adata.X.todense(), index=adata.obs.index, columns=adata.var.index)
+    aggregated = temp_df.groupby(level=0, axis=1).sum()
+    adata = anndata.AnnData(aggregated, obs=adata.obs)
+    adata.var.index = [gene_mapping[var] for var in adata.var.index]
+    # This introduces duplicate gene names, use Pandas for aggregation
+    # since anndata doesn't have that functionality
+    return adata
 
 
-def main(token: str, directories: List[Path], ensembl_to_symbol_path=Path('/opt/ensembl_to_symbol.json'),
-         symbol_to_ensembl_path=Path('/opt/symbol_to_ensembl.json')):
-
-    if token == "None":
-        token = None
-    # Load files
-    file_pairs = [find_file_pairs(directory) for directory in directories]
-    annotated_files = [annotate_file(file_pair[0],file_pair[1], token) for file_pair in file_pairs]
-    for adata in annotated_files:
+def get_old_cluster_df(annotated_filtered_files):
+    for adata in annotated_filtered_files:
+        dataset_leiden_list = [
+            f"leiden-UMAP-{adata.obs['dataset'][i]}-{adata.obs['leiden'][i]}" for i in adata.obs.index]
+        adata.obs["leiden"] = pd.Series(dataset_leiden_list, index=adata.obs.index)
         sc.tl.rank_genes_groups(adata, 'leiden', method='t-test', rankby_abs=True, n_genes=len(adata.var.index))
-    cluster_dfs = [get_cluster_df(adata) for adata in annotated_files]
+    cluster_dfs = [get_cluster_df(adata) for adata in annotated_filtered_files]
     cluster_df = pd.concat(cluster_dfs)
-
 
     with pd.HDFStore('cluster.hdf5') as store:
         store.put('cluster', cluster_df)
 
-    concatenated_file = reduce(inner_join, annotated_files)
 
-    symbol_to_ensembl_dict = {}
-    ensembl_to_symbol_dict = {}
+def main(token: str, directories: List[Path]):
 
-    var_columns = concatenated_file.var.index
+    token = None if token == "None" else token
+    # Load files
+    file_pairs = [find_file_pairs(directory) for directory in directories]
+    #This can be parallelized, though the benefits will likely be minimal
+    annotated_files = [annotate_file(file_pair[0],file_pair[1], token) for file_pair in file_pairs]
+    annotated_unfiltered_files = [file[0] for file in annotated_files]
+    annotated_filtered_files = [file[1] for file in annotated_files]
 
-    if ensembl_to_symbol_path.exists():
-        with open(ensembl_to_symbol_path, 'r') as json_file:
-            ensembl_to_symbol_dict = json.load(json_file)
-        with open(symbol_to_ensembl_path, 'r') as json_file:
-            symbol_to_ensembl_dict = json.load(json_file)
+    #This can be parallelized
+    get_old_cluster_df(annotated_filtered_files)
 
-    else:
-        ensembl_to_symbol_dict, symbol_to_ensembl_dict = get_gene_dicts(var_columns)
-        with open('ensembl_to_symbol.json', 'w') as json_file:
-            json.dump(ensembl_to_symbol_dict, json_file)
-        with open('symbol_to_ensembl.json', 'w') as json_file:
-            json.dump(symbol_to_ensembl_dict, json_file)
+    concatenated_file = annotated_unfiltered_files[0].concatenate(*annotated_unfiltered_files[1:], fill_value=0, index_unique='_')
 
-    keep_vars = [key for key in ensembl_to_symbol_dict.keys()]
-    concatenated_file = concatenated_file[:, keep_vars]
+    concatenated_file = map_gene_ids(concatenated_file)
 
-    concatenated_file.var.index = [ensembl_to_symbol_dict[ensembl_id] for ensembl_id in concatenated_file.var.index]
+    concatenated_file.obs['dataset_leiden'] = concatenated_file.obs['leiden']
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
 

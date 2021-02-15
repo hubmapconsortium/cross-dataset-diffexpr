@@ -4,33 +4,36 @@ from pathlib import Path
 
 import anndata
 import scanpy as sc
-
+import numpy as np
+import pandas as pd
 
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
     adata.var_names_make_unique()
+    adata.obs_names_make_unique()
 
-    # Batch correction with bbknn and dimension reduction
-    sc.pp.combat(adata, "dataset")
+    sc.pp.filter_cells(adata, min_genes=200)
+    sc.pp.filter_genes(adata, min_cells=3)
 
-    # add the total counts per cell as observations-annotation to adata
+    adata.raw = adata
+
     adata.obs["n_counts"] = adata.X.sum(axis=1)
 
     sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.log1p(adata)
-    sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=5, min_disp=0)
-
+    sc.pp.combat(adata, "dataset")
     sc.pp.scale(adata, max_value=10)
+
     sc.pp.pca(adata, n_comps=50)
     sc.pp.neighbors(adata, n_neighbors=50, n_pcs=50)
 
     sc.tl.umap(adata)
 
-    adata.obs['dataset_leiden'] = adata.obs['leiden']
-    adata.obs = adata.obs.drop('leiden', axis=1, inplace=False)
-
     # leiden clustering
     sc.tl.leiden(adata)
+
+    leiden_list = [f"leiden-UMAP-allrna-{adata.obs['leiden'][i]}" for i in adata.obs.index]
+    adata.obs['leiden'] = pd.Series(leiden_list)
 
     # Write out as h5ad
     output_file = Path('bc_umap_cluster.h5ad')
