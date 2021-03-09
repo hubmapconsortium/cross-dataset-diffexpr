@@ -50,4 +50,4 @@ if __name__ == '__main__':
     p.add_argument('known_hosts_file', type=Path)
     args = p.parse_args()
 
-    main(args.bc_h5ad_file, args.old_cluster_file)
+    main(args.bc_h5ad_file, args.old_cluster_file, args.known_hosts_file)
