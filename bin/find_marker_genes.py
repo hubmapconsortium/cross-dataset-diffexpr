@@ -7,7 +7,7 @@ import pandas as pd
 from hubmap_cell_id_gen_py import get_sequencing_cell_id
 
 
-def main(h5ad_file: Path, old_cluster_file:Path, known_hosts_file:Path):
+def main(h5ad_file: Path, old_cluster_file:Path, ssh_key:Path):
     adata = anndata.read_h5ad(h5ad_file)
     cell_id_list = [get_sequencing_cell_id(adata.obs["dataset"][i], adata.obs["barcode"][i]) for i in adata.obs.index]
     adata.obs["cell_id"] = pd.Series(cell_id_list, index=adata.obs.index)
@@ -41,13 +41,13 @@ def main(h5ad_file: Path, old_cluster_file:Path, known_hosts_file:Path):
 
     create_minimal_dataset(cell_df, quant_df, organ_df, cluster_df, 'rna')
 
-    tar_zip_scp("rna", known_hosts_file)
+    tar_zip_scp("rna", ssh_key)
 
 if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('bc_h5ad_file', type=Path)
     p.add_argument('old_cluster_file', type=Path)
-    p.add_argument('known_hosts_file', type=Path)
+    p.add_argument('ssh_key', type=Path)
     args = p.parse_args()
 
-    main(args.bc_h5ad_file, args.old_cluster_file, args.known_hosts_file)
+    main(args.bc_h5ad_file, args.old_cluster_file, args.ssh_key)

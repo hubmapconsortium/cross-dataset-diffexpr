@@ -17,7 +17,7 @@ inputs:
     inputBinding:
       position: 2
 
-  known_hosts_file:
+  ssh_key:
     type: File
     inputBinding:
       position: 3
