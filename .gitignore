@@ -1,6 +1,5 @@
 *.csv
 *.h5ad
 *.hdf5
-*.json
 .idea
 __pycache__

@@ -29,6 +29,9 @@ COPY docker/requirements.txt /opt/requirements.txt
 RUN pip3 install -r /opt/requirements.txt \
  && rm -rf /root/.cache/pip
 
+RUN mkdir /root/.ssh
+COPY /hive/users/hive/.ssh/known_hosts /root/.ssh/known_hosts
+
 COPY bin /opt
 COPY data /opt
 
