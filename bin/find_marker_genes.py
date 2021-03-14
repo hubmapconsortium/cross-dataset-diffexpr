@@ -6,7 +6,7 @@ import anndata
 import pandas as pd
 from hubmap_cell_id_gen_py import get_sequencing_cell_id
 
-def main(h5ad_file: Path, old_cluster_file:Path, ssh_key:Path):
+def main(h5ad_file: Path, old_cluster_file:Path):
     adata = anndata.read_h5ad(h5ad_file)
     cell_id_list = [get_sequencing_cell_id(adata.obs["dataset"][i], adata.obs["barcode"][i]) for i in adata.obs.index]
     adata.obs["cell_id"] = pd.Series(cell_id_list, index=adata.obs.index)
