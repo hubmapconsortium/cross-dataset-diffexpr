@@ -33,7 +33,8 @@ def main(h5ad_file: Path):
     sc.tl.leiden(adata)
 
     leiden_list = [f"leiden-UMAP-allrna-{adata.obs['leiden'][i]}" for i in adata.obs.index]
-    adata.obs['leiden'] = pd.Series(leiden_list)
+
+    adata.obs['leiden'] = pd.Series(leiden_list, index=adata.obs.index)
 
     # Write out as h5ad
     output_file = Path('bc_umap_cluster.h5ad')

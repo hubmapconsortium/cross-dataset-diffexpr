@@ -17,6 +17,7 @@ inputs:
     inputBinding:
       position: 2
 
+
 outputs:
   hdf5_file:
     type: File

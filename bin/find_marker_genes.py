@@ -6,8 +6,7 @@ import anndata
 import pandas as pd
 from hubmap_cell_id_gen_py import get_sequencing_cell_id
 
-
-def main(h5ad_file: Path, old_cluster_file:Path):
+def main(h5ad_file: Path, old_cluster_file:Path, ssh_key:Path):
     adata = anndata.read_h5ad(h5ad_file)
     cell_id_list = [get_sequencing_cell_id(adata.obs["dataset"][i], adata.obs["barcode"][i]) for i in adata.obs.index]
     adata.obs["cell_id"] = pd.Series(cell_id_list, index=adata.obs.index)
@@ -18,7 +17,11 @@ def main(h5ad_file: Path, old_cluster_file:Path):
     with pd.HDFStore(old_cluster_file) as store:
         old_cluster_df = store.get('cluster')
 
-    cluster_df = pd.concat([old_cluster_df, cluster_df])
+    cluster_df_list = cluster_df.to_dict(orient='records')
+    cluster_df_list.extend(old_cluster_df.to_dict(orient='records'))
+
+#    cluster_df = pd.concat([old_cluster_df, cluster_df])
+    cluster_df = pd.DataFrame(cluster_df_list)
 
     cell_df = adata.obs.copy()
     clusters_list = [",".join([cell_df["leiden"][i], cell_df["dataset_leiden"][i]]) for i in cell_df.index]
