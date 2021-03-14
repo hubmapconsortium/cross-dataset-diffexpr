@@ -17,11 +17,6 @@ inputs:
     inputBinding:
       position: 2
 
-  known_hosts_file:
-    type: File
-    inputBinding:
-      position: 3
-
 outputs:
   hdf5_file:
     type: File
