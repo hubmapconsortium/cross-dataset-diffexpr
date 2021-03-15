@@ -77,8 +77,6 @@ steps:
       - id: old_cluster_file
         source: annotate-concatenate/old_cluster_file
     out:
-      - hdf5_file
-      - csv_file
       - mini_hdf5_file
       - mini_csv_file
 

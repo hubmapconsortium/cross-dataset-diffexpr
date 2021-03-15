@@ -19,16 +19,6 @@ inputs:
 
 
 outputs:
-  hdf5_file:
-    type: File
-    outputBinding:
-      glob: "rna.hdf5"
-
-  csv_file:
-    type: File
-    outputBinding:
-      glob: "rna.csv"
-
   mini_hdf5_file:
     type: File
     outputBinding:
