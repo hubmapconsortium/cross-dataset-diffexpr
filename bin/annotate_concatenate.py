@@ -118,7 +118,8 @@ def main(token: str, directories: List[Path]):
 
     concatenated_file = map_gene_ids(concatenated_file)
 
-    concatenated_file.obs['dataset_leiden'] = concatenated_file.obs['leiden']
+    dataset_leiden_list = [f"leiden-UMAP-{concatenated_file.obs.at[i, 'dataset']}-{concatenated_file.obs.at[i, 'leiden']}" for i in concatenated_file.obs.index]
+    concatenated_file.obs['dataset_leiden'] = pd.Series(dataset_leiden_list, index=concatenated_file.obs.index)
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
 
