@@ -4,11 +4,37 @@ from pathlib import Path
 
 import anndata
 import scanpy as sc
-import numpy as np
 import pandas as pd
+from contextlib import contextmanager
+
+import matplotlib.pyplot as plt
+
+@contextmanager
+def new_plot():
+    """
+    When used in a `with` block, clears matplotlib internal state
+    after plotting and saving things. Probably not necessary to be this
+    thorough in clearing everything, but extra calls to `plt.clf()` and
+    `plf.close()` don't *hurt*
+    Intended usage:
+        ```
+        with new_plot():
+            do_matplotlib_things()
+            plt.savefig(path)
+            # or
+            fig.savefig(path)
+        ```
+    """
+    plt.clf()
+    try:
+        yield
+    finally:
+        plt.clf()
+        plt.close()
 
 def main(h5ad_file: Path):
     adata = anndata.read_h5ad(h5ad_file)
+    print(adata.obsm)
     adata.var_names_make_unique()
     adata.obs_names_make_unique()
 
@@ -16,6 +42,11 @@ def main(h5ad_file: Path):
     sc.pp.filter_genes(adata, min_cells=3)
 
     adata.raw = adata
+
+    adata.obsm["umap"] = adata.obsm["X_umap"]
+
+    adata.obsm.pop("umap")
+    adata.obsm.pop("X_umap")
 
     adata.obs["n_counts"] = adata.X.sum(axis=1)
 

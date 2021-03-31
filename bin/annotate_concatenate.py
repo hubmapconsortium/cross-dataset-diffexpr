@@ -57,6 +57,8 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> Tup
     cells = list(filtered_adata.obs.index)
     unfiltered_subset = unfiltered_adata[cells,:].copy()
     unfiltered_subset.obs = filtered_adata.obs
+    unfiltered_subset.obsm = filtered_adata.obsm
+    print(unfiltered_subset.obsm.keys())
 
     return unfiltered_subset.copy(), filtered_adata
 
@@ -76,6 +78,7 @@ def read_gene_mapping() -> Dict[str, str]:
     raise ValueError('\n'.join(message_pieces))
 
 def map_gene_ids(adata):
+    obsm = adata.obsm
     gene_mapping = read_gene_mapping()
     keep_vars = [gene in gene_mapping for gene in adata.var.index]
     adata = adata[:, keep_vars]
@@ -83,6 +86,7 @@ def map_gene_ids(adata):
     aggregated = temp_df.groupby(level=0, axis=1).sum()
     adata = anndata.AnnData(aggregated, obs=adata.obs)
     adata.var.index = [gene_mapping[var] for var in adata.var.index]
+    adata.obsm = obsm
     # This introduces duplicate gene names, use Pandas for aggregation
     # since anndata doesn't have that functionality
     return adata
