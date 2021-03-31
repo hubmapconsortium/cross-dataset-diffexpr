@@ -1,1 +1,1 @@
-docker.pkg.github.com/hubmapconsortium/cross-dataset-diffexpr/cross-dataset-scanpy	docker/Dockerfile	base_directory_build
+ghcr.io/hubmapconsortium/cross-dataset-scanpy	docker/Dockerfile	base_directory_build

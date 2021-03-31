@@ -3,7 +3,7 @@ class: CommandLineTool
 label: Batch correction, dimensionality reduction and clustering
 hints:
   DockerRequirement:
-    dockerPull: docker.pkg.github.com/hubmapconsortium/cross-dataset-diffexpr/cross-dataset-scanpy:latest
+    dockerPull: ghcr.io/hubmapconsortium/cross-dataset-scanpy
 baseCommand: /opt/batch_correct_umap_cluster.py
 
 inputs:

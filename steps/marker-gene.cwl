@@ -3,7 +3,7 @@ class: CommandLineTool
 label: Marker gene analysis
 hints:
   DockerRequirement:
-    dockerPull: docker.pkg.github.com/hubmapconsortium/cross-dataset-diffexpr/cross-dataset-scanpy:latest
+    dockerPull: ghcr.io/hubmapconsortium/cross-dataset-scanpy
 baseCommand: /opt/find_marker_genes.py
 
 inputs:

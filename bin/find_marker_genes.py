@@ -33,7 +33,7 @@ def main(h5ad_file: Path, old_cluster_file:Path):
 
     quant_df = make_quant_df(adata)
 
-    load_data_to_vms('rna', cell_df, quant_df, organ_df, cluster_df)
+#    load_data_to_vms('rna', cell_df, quant_df, organ_df, cluster_df)
 
 #    quant_df.to_csv('rna.csv')
 
