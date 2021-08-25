@@ -16,9 +16,6 @@ import anndata
 import pandas as pd
 import scanpy as sc
 
-CELL_GY_GENE_FILENAME = 'cell_by_gene.hdf5'
-CELL_CLUSTER_FILENAME = 'umap_coords_clusters.csv'
-
 GENE_MAPPING_DIRECTORIES = [
     Path(__file__).parent.parent / 'data',
     Path('/opt/data'),

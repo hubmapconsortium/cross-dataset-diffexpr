@@ -63,6 +63,18 @@ def main(h5ad_file: Path):
     # leiden clustering
     sc.tl.leiden(adata)
 
+    with new_plot():
+        sc.pl.umap(adata, color="leiden", show=False)
+        plt.savefig("umap_by_leiden_cluster.pdf", bbox_inches="tight")
+
+    with new_plot():
+        sc.pl.umap(adata, color="dataset", show=False)
+        plt.savefig("umap_by_dataset.pdf", bbox_inches="tight")
+
+    with new_plot():
+        sc.pl.umap(adata, color="organ", show=False)
+        plt.savefig("umap_by_organ.pdf", bbox_inches="tight")
+
     leiden_list = [f"leiden-UMAP-allrna-{adata.obs['leiden'][i]}" for i in adata.obs.index]
 
     adata.obs['leiden'] = pd.Series(leiden_list, index=adata.obs.index)

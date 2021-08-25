@@ -27,7 +27,14 @@ def main(h5ad_file: Path, old_cluster_file:Path):
     cell_df = adata.obs.copy()
     clusters_list = [",".join([cell_df["leiden"][i], cell_df["dataset_leiden"][i]]) for i in cell_df.index]
     cell_df["clusters"] = pd.Series(clusters_list, index=cell_df.index)
-    cell_df = cell_df[['cell_id', 'barcode', 'dataset', 'organ', 'modality', 'clusters']]
+
+    umap_one_list = [coord[0] for coord in adata.obsm['X_umap']]
+    umap_two_list = [coord[1] for coord in adata.obsm['X_umap']]
+
+    cell_df['umap_1'] = pd.Series(umap_one_list, index=cell_df.index)
+    cell_df['umap_2'] = pd.Series(umap_one_list, index=cell_df.index)
+
+    cell_df = cell_df[['cell_id', 'barcode', 'dataset', 'organ', 'modality', 'clusters', 'umap_1', 'umap_2']]
 
     adata.X = adata.raw.X
 
@@ -35,12 +42,12 @@ def main(h5ad_file: Path, old_cluster_file:Path):
 
 #    load_data_to_vms('rna', cell_df, quant_df, organ_df, cluster_df)
 
-#    quant_df.to_csv('rna.csv')
+    quant_df.to_csv('rna.csv')
 
-#    with pd.HDFStore('rna.hdf5') as store:
-#        store.put('cell', cell_df, format='t')
-#        store.put('organ', organ_df)
-#        store.put('cluster', cluster_df)
+    with pd.HDFStore('rna.hdf5') as store:
+        store.put('cell', cell_df, format='t')
+        store.put('organ', organ_df)
+        store.put('cluster', cluster_df)
 
     create_minimal_dataset(cell_df, quant_df, organ_df, cluster_df, 'rna')
 
