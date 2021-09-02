@@ -44,10 +44,13 @@ def main(h5ad_file: Path, old_cluster_file:Path):
 
     quant_df.to_csv('rna.csv')
 
+    percentage_df = adata.uns['percentages']
+
     with pd.HDFStore('rna.hdf5') as store:
         store.put('cell', cell_df, format='t')
         store.put('organ', organ_df)
         store.put('cluster', cluster_df)
+        store.put('percentages', percentage_df)
 
     create_minimal_dataset(cell_df, quant_df, organ_df, cluster_df, 'rna')
 

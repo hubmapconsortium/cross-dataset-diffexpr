@@ -10,7 +10,8 @@ from argparse import ArgumentParser
 from os import fspath, walk
 from pathlib import Path
 from typing import List, Dict, Tuple
-from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id
+from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id, precompute_percentages
+from concurrent.futures import ThreadPoolExecutor
 
 import anndata
 import pandas as pd
@@ -115,12 +116,18 @@ def main(token: str, directories: List[Path]):
     #This can be parallelized
     get_old_cluster_df(annotated_filtered_files)
 
-    concatenated_file = annotated_unfiltered_files[0].concatenate(*annotated_unfiltered_files[1:], fill_value=0, index_unique='_')
+    mapped_annotated_unfiltered_files = [map_gene_ids(file) for file in annotated_unfiltered_files]
 
-    concatenated_file = map_gene_ids(concatenated_file)
+    with ThreadPoolExecutor(max_workers=len(directories)) as e:
+        percentage_dfs = e.map(precompute_percentages, mapped_annotated_unfiltered_files)
+
+    percentage_df = pd.concat(percentage_dfs)
+
+    concatenated_file = annotated_unfiltered_files[0].concatenate(*annotated_unfiltered_files[1:], fill_value=0, index_unique='_')
 
     dataset_leiden_list = [f"leiden-UMAP-{concatenated_file.obs.at[i, 'dataset']}-{concatenated_file.obs.at[i, 'leiden']}" for i in concatenated_file.obs.index]
     concatenated_file.obs['dataset_leiden'] = pd.Series(dataset_leiden_list, index=concatenated_file.obs.index)
+    concatenated_file.uns['percentages'] = percentage_df
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
 
