@@ -15,8 +15,7 @@ def main(h5ad_file: Path, old_cluster_file:Path):
     #This can be threaded in the cdcommon lib
     organ_df, cluster_df = get_pval_dfs(adata)
 
-    with pd.HDFStore(old_cluster_file) as store:
-        old_cluster_df = store.get('cluster')
+    old_cluster_df = pd.read_hdf(old_cluster_file, 'cluster')
 
     cluster_df_list = cluster_df.to_dict(orient='records')
     cluster_df_list.extend(old_cluster_df.to_dict(orient='records'))
@@ -32,11 +31,12 @@ def main(h5ad_file: Path, old_cluster_file:Path):
     umap_two_list = [coord[1] for coord in adata.obsm['X_umap']]
 
     cell_df['umap_1'] = pd.Series(umap_one_list, index=cell_df.index)
-    cell_df['umap_2'] = pd.Series(umap_one_list, index=cell_df.index)
+    cell_df['umap_2'] = pd.Series(umap_two_list, index=cell_df.index)
 
     cell_df = cell_df[['cell_id', 'barcode', 'dataset', 'organ', 'modality', 'clusters', 'umap_1', 'umap_2']]
 
-    adata.X = adata.raw.X
+    adata.X = adata.layers["rpkm"]
+    adata.X = adata.X * 1000.0
 
     quant_df = make_quant_df(adata)
 
@@ -44,13 +44,10 @@ def main(h5ad_file: Path, old_cluster_file:Path):
 
     quant_df.to_csv('rna.csv')
 
-    percentage_df = adata.uns['percentages']
-
     with pd.HDFStore('rna.hdf5') as store:
         store.put('cell', cell_df, format='t')
         store.put('organ', organ_df)
         store.put('cluster', cluster_df)
-        store.put('percentages', percentage_df)
 
     create_minimal_dataset(cell_df, quant_df, organ_df, cluster_df, 'rna')
 

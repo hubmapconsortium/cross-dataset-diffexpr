@@ -82,6 +82,8 @@ def main(h5ad_file: Path):
     # Write out as h5ad
     output_file = Path('bc_umap_cluster.h5ad')
     print('Saving output to', output_file.absolute())
+    print(adata.layers)
+
     adata.write_h5ad(output_file)
 
 

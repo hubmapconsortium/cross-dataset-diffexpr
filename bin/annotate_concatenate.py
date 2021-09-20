@@ -9,18 +9,59 @@ import json
 from argparse import ArgumentParser
 from os import fspath, walk
 from pathlib import Path
-from typing import List, Dict, Tuple
-from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id, precompute_percentages
+from typing import List, Dict, Sequence, Tuple, Optional
+from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id, precompute_dataset_percentages
 from concurrent.futures import ThreadPoolExecutor
 
 import anndata
+from anndata import AnnData
 import pandas as pd
+import scipy
 import scanpy as sc
+import numpy as np
 
 GENE_MAPPING_DIRECTORIES = [
     Path(__file__).parent.parent / 'data',
     Path('/opt/data'),
 ]
+
+GENE_LENGTH_PATHS = [Path('/opt/data/gencode-v35-gene-lengths.json'), Path('/opt/data/salmon-index-v1.2-gene-lengths.json')]
+
+def get_inverted_gene_dict():
+    inverted_dict = {}
+    gene_mapping = read_gene_mapping()
+    for key in gene_mapping:
+        if gene_mapping[key] not in inverted_dict:
+            inverted_dict[gene_mapping[key]] = []
+        inverted_dict[gene_mapping[key]].append(key)
+    return inverted_dict
+
+def counts_to_rpkm(adata):
+    if not isinstance(adata.X, np.ndarray):
+        total_reads = np.sum(adata.X.todense())
+    else:
+        total_reads = np.sum(adata.X)
+    scaling_factor = total_reads / 1000000
+    if not isinstance(adata.X, np.ndarray):
+        adata.X = adata.X.todense() / scaling_factor
+    else:
+        adata.X = adata.X / scaling_factor
+    with open(GENE_LENGTH_PATHS[0]) as f:
+        gene_lengths = json.load(f)
+
+    with open(GENE_LENGTH_PATHS[1]) as f:
+        gene_lengths.update(json.load(f))
+
+    inverted_gene_mapping = get_inverted_gene_dict()
+
+    gene_lengths_list = []
+    for var in adata.var.index:
+        ensembl_symbols = inverted_gene_mapping[var]
+        ensembl_gene_lengths = [gene_lengths[symbol] for symbol in ensembl_symbols if symbol in gene_lengths]
+        gene_lengths_list.append(sum(ensembl_gene_lengths))
+
+    X = adata.X / np.array(gene_lengths_list) #Broadcast gene_lengths_list to same shape as adata.X and do elementwise division
+    return X
 
 def find_files(directory, patterns):
     for dirpath_str, dirnames, filenames in walk(directory):
@@ -33,12 +74,13 @@ def find_files(directory, patterns):
 
 def find_file_pairs(directory):
     filtered_patterns = ['cluster_marker_genes.h5ad', 'secondary_analysis.h5ad']
-    unfiltered_patterns = ['out.h5ad']
+    unfiltered_patterns = ['out.h5ad', 'expr.h5ad']
     filtered_file = find_files(directory, filtered_patterns)
     unfiltered_file = find_files(directory, unfiltered_patterns)
     return filtered_file, unfiltered_file
 
 def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> Tuple[anndata.AnnData, anndata.AnnData]:
+
     # Get the directory
     data_set_dir = fspath(unfiltered_file.parent.stem)
     # And the tissue type
@@ -56,7 +98,10 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> Tup
     unfiltered_subset = unfiltered_adata[cells,:].copy()
     unfiltered_subset.obs = filtered_adata.obs
     unfiltered_subset.obsm = filtered_adata.obsm
-    print(unfiltered_subset.obsm.keys())
+
+    cell_ids_list = ["-".join([data_set_dir, barcode]) for barcode in unfiltered_subset.obs['barcode']]
+    unfiltered_subset.obs['cell_id'] = pd.Series(cell_ids_list, index=unfiltered_subset.obs.index)
+    unfiltered_subset.obs.set_index("cell_id", drop=True, inplace=True)
 
     return unfiltered_subset.copy(), filtered_adata
 
@@ -85,10 +130,12 @@ def map_gene_ids(adata):
     adata = anndata.AnnData(aggregated, obs=adata.obs)
     adata.var.index = [gene_mapping[var] for var in adata.var.index]
     adata.obsm = obsm
+
+    adata.layers["rpkm"] = counts_to_rpkm(adata)
     # This introduces duplicate gene names, use Pandas for aggregation
     # since anndata doesn't have that functionality
+    adata.var_names_make_unique()
     return adata
-
 
 def get_old_cluster_df(annotated_filtered_files):
     for adata in annotated_filtered_files:
@@ -118,16 +165,18 @@ def main(token: str, directories: List[Path]):
 
     mapped_annotated_unfiltered_files = [map_gene_ids(file) for file in annotated_unfiltered_files]
 
-    with ThreadPoolExecutor(max_workers=len(directories)) as e:
-        percentage_dfs = e.map(precompute_percentages, mapped_annotated_unfiltered_files)
+#    with ThreadPoolExecutor(max_workers=len(directories)) as e:
+#        percentage_dfs = e.map(precompute_dataset_percentages, rpkm_adatas)
 
-    percentage_df = pd.concat(percentage_dfs)
+#    percentage_df = pd.concat(percentage_dfs)
 
-    concatenated_file = annotated_unfiltered_files[0].concatenate(*annotated_unfiltered_files[1:], fill_value=0, index_unique='_')
+    concatenated_file = anndata.concat(mapped_annotated_unfiltered_files, fill_value=0, index_unique='_', join='inner')
+
+    print(concatenated_file.layers)
 
     dataset_leiden_list = [f"leiden-UMAP-{concatenated_file.obs.at[i, 'dataset']}-{concatenated_file.obs.at[i, 'leiden']}" for i in concatenated_file.obs.index]
     concatenated_file.obs['dataset_leiden'] = pd.Series(dataset_leiden_list, index=concatenated_file.obs.index)
-    concatenated_file.uns['percentages'] = percentage_df
+#    concatenated_file.uns['percentages'] = percentage_df
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
 
