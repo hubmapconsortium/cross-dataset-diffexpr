@@ -19,6 +19,18 @@ inputs:
 
 
 outputs:
+  hdf5_file:
+    type: File
+    outputBinding:
+      glob: "rna.hdf5"
+    doc: hdf5 file with layers containing dataframes for cell, group, and quant data
+
+  csv_file:
+    type: File
+    outputBinding:
+      glob: "rna.csv"
+    doc: csv file containing long narrow expression data
+
   mini_hdf5_file:
     type: File
     outputBinding:
