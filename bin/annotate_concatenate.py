@@ -7,6 +7,7 @@
 # Concatenate all of the AnnData objects, ensuring that they have the same columns (genes, stored in AnnData.var) -- might need to expand each AnnData object if loading the filtered versions
 import json
 from argparse import ArgumentParser
+from collections import defaultdict
 from os import fspath, walk
 from pathlib import Path
 from typing import List, Dict, Sequence, Tuple, Optional
@@ -28,12 +29,10 @@ GENE_MAPPING_DIRECTORIES = [
 GENE_LENGTH_PATHS = [Path('/opt/data/gencode-v35-gene-lengths.json'), Path('/opt/data/salmon-index-v1.2-gene-lengths.json')]
 
 def get_inverted_gene_dict():
-    inverted_dict = {}
+    inverted_dict = defaultdict(list)
     gene_mapping = read_gene_mapping()
-    for key in gene_mapping:
-        if gene_mapping[key] not in inverted_dict:
-            inverted_dict[gene_mapping[key]] = []
-        inverted_dict[gene_mapping[key]].append(key)
+    for ensembl, hugo in gene_mapping.items():
+        inverted_dict[hugo].append(ensembl)
     return inverted_dict
 
 def counts_to_rpkm(adata):
