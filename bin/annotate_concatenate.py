@@ -72,21 +72,9 @@ def counts_to_rpkm(adata):
     cell_totals = adata.X.sum(axis=1).A.flatten()
     cell_total_recip = scipy.sparse.diags(1 / cell_totals)
 
-    with open(GENE_LENGTH_PATHS[0]) as f:
-        gene_lengths = json.load(f)
-
-    with open(GENE_LENGTH_PATHS[1]) as f:
-        gene_lengths.update(json.load(f))
-
-    inverted_gene_mapping = get_inverted_gene_dict()
-
-    gene_lengths_list = []
-    for var in adata.var.index:
-        ensembl_symbols = inverted_gene_mapping[var]
-        ensembl_gene_lengths = [gene_lengths[symbol] for symbol in ensembl_symbols if symbol in gene_lengths]
-        gene_lengths_list.append(sum(ensembl_gene_lengths))
-    length_array = np.array(gene_lengths_list)
-    length_recip = scipy.sparse.diags(1 / length_array)
+    all_gene_lengths = get_gene_lengths()
+    gene_lengths = np.array(all_gene_lengths.loc[adata.var.index])
+    length_recip = scipy.sparse.diags(1 / gene_lengths)
 
     X = cell_total_recip @ adata.X @ length_recip
     return X * 1e9
