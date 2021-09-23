@@ -53,6 +53,9 @@ def get_gene_lengths() -> pd.Series:
 
     gene_mapping = read_gene_mapping()
 
+    # TODO: fix structure of having to make a full matrix from a
+    #   vector to use this functionality -- might be hard to avoid
+    #   since it needs to be a full matrix-vector or vector-matrix product
     ensembl_gene_length_mat = LabeledMatrix(
         data=np.matrix(gene_lengths).T,
         row_labels=list(gene_lengths.index),
@@ -141,17 +144,22 @@ def map_gene_ids(adata):
     gene_mapping = read_gene_mapping()
     keep_vars = [gene in gene_mapping for gene in adata.var.index]
     adata = adata[:, keep_vars]
-    temp_df = pd.DataFrame(adata.X.todense(), index=adata.obs.index, columns=adata.var.index)
-    aggregated = temp_df.groupby(level=0, axis=1).sum()
-    adata = anndata.AnnData(aggregated, obs=adata.obs)
-    adata.var.index = [gene_mapping[var] for var in adata.var.index]
-    adata.obsm = obsm
 
-    adata.layers["rpkm"] = counts_to_rpkm(adata)
+    temp_mat = LabeledMatrix(
+        data=adata.X,
+        row_labels=adata.obs.index,
+        col_labels=adata.var.index,
+    )
+    aggregated = collapse_matrix_rows_cols(temp_mat, col_mapping=gene_mapping)
+    new_adata = aggregated.to_anndata()
+    new_adata.obs = adata.obs
+    new_adata.obsm = obsm
+
+    new_adata.layers["rpkm"] = counts_to_rpkm(new_adata)
     # This introduces duplicate gene names, use Pandas for aggregation
     # since anndata doesn't have that functionality
-    adata.var_names_make_unique()
-    return adata
+    new_adata.var_names_make_unique()
+    return new_adata
 
 def get_old_cluster_df(annotated_filtered_files):
     for adata in annotated_filtered_files:

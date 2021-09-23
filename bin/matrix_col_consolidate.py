@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+import anndata
 import numpy as np
+import pandas as pd
 import scipy.sparse
 
 @dataclass
@@ -9,6 +11,13 @@ class LabeledMatrix:
     data: scipy.sparse.spmatrix
     row_labels: List[str]
     col_labels: List[str]
+
+    def to_anndata(self) -> anndata.AnnData:
+        return anndata.AnnData(
+            X=self.data,
+            obs=pd.DataFrame(index=self.row_labels),
+            var=pd.DataFrame(index=self.col_labels)
+        )
 
 def get_col_sum_matrix(
     orig_labels: List[str], label_mapping: Dict[str, str]
