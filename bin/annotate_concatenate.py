@@ -8,18 +8,21 @@
 import json
 from argparse import ArgumentParser
 from collections import defaultdict
+from functools import lru_cache
 from os import fspath, walk
 from pathlib import Path
 from typing import List, Dict, Sequence, Tuple, Optional
-from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id, precompute_dataset_percentages
-from concurrent.futures import ThreadPoolExecutor
+
+from matrix_col_consolidate import LabeledMatrix, collapse_matrix_rows_cols
 
 import anndata
 from anndata import AnnData
+from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id, precompute_dataset_percentages
 import pandas as pd
 import scipy.sparse
 import scanpy as sc
 import numpy as np
+
 
 GENE_MAPPING_DIRECTORIES = [
     Path(__file__).parent.parent / 'data',
@@ -34,6 +37,36 @@ def get_inverted_gene_dict():
     for ensembl, hugo in gene_mapping.items():
         inverted_dict[hugo].append(ensembl)
     return inverted_dict
+
+@lru_cache(maxsize=1)
+def get_gene_lengths() -> pd.Series:
+    """
+    Returns a pd.Series with HUGO gene names as the index, and
+    length in bases as the value. Adds lengths of corresponding
+    Ensembl gene IDs.
+    """
+    gene_length_dict = {}
+    for path in GENE_LENGTH_PATHS:
+        with open(path) as f:
+            gene_length_dict.update(json.load(f))
+    gene_lengths = pd.Series(gene_length_dict)
+
+    gene_mapping = read_gene_mapping()
+
+    ensembl_gene_length_mat = LabeledMatrix(
+        data=np.matrix(gene_lengths).T,
+        row_labels=list(gene_lengths.index),
+        col_labels=['gene'],
+    )
+    hugo_gene_length_mat = collapse_matrix_rows_cols(
+        ensembl_gene_length_mat,
+        gene_mapping,
+    )
+    hugo_gene_length = pd.Series(
+        hugo_gene_length_mat.data.A.flatten(),
+        index=hugo_gene_length_mat.row_labels,
+    )
+    return hugo_gene_length
 
 def counts_to_rpkm(adata):
     cell_totals = adata.X.sum(axis=1).A.flatten()
