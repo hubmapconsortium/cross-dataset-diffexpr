@@ -156,9 +156,7 @@ def map_gene_ids(adata):
     new_adata.obsm = obsm
 
     new_adata.layers["rpkm"] = counts_to_rpkm(new_adata)
-    # This introduces duplicate gene names, use Pandas for aggregation
-    # since anndata doesn't have that functionality
-    new_adata.var_names_make_unique()
+
     return new_adata
 
 def get_old_cluster_df(annotated_filtered_files):
