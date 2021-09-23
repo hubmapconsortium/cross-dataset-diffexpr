@@ -16,7 +16,7 @@ class LabeledMatrix:
         return anndata.AnnData(
             X=self.data,
             obs=pd.DataFrame(index=self.row_labels),
-            var=pd.DataFrame(index=self.col_labels)
+            var=pd.DataFrame(index=self.col_labels),
         )
 
 def get_col_sum_matrix(
