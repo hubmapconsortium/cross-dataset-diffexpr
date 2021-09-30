@@ -7,6 +7,7 @@
 # Concatenate all of the AnnData objects, ensuring that they have the same columns (genes, stored in AnnData.var) -- might need to expand each AnnData object if loading the filtered versions
 import json
 from argparse import ArgumentParser
+from collections import defaultdict
 from os import fspath, walk
 from pathlib import Path
 from typing import List, Dict, Sequence, Tuple, Optional
@@ -16,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 import anndata
 from anndata import AnnData
 import pandas as pd
-import scipy
+import scipy.sparse
 import scanpy as sc
 import numpy as np
 
@@ -28,24 +29,16 @@ GENE_MAPPING_DIRECTORIES = [
 GENE_LENGTH_PATHS = [Path('/opt/data/gencode-v35-gene-lengths.json'), Path('/opt/data/salmon-index-v1.2-gene-lengths.json')]
 
 def get_inverted_gene_dict():
-    inverted_dict = {}
+    inverted_dict = defaultdict(list)
     gene_mapping = read_gene_mapping()
-    for key in gene_mapping:
-        if gene_mapping[key] not in inverted_dict:
-            inverted_dict[gene_mapping[key]] = []
-        inverted_dict[gene_mapping[key]].append(key)
+    for ensembl, hugo in gene_mapping.items():
+        inverted_dict[hugo].append(ensembl)
     return inverted_dict
 
 def counts_to_rpkm(adata):
-    if not isinstance(adata.X, np.ndarray):
-        total_reads = np.sum(adata.X.todense())
-    else:
-        total_reads = np.sum(adata.X)
-    scaling_factor = total_reads / 1000000
-    if not isinstance(adata.X, np.ndarray):
-        adata.X = adata.X.todense() / scaling_factor
-    else:
-        adata.X = adata.X / scaling_factor
+    cell_totals = adata.X.sum(axis=1).A.flatten()
+    cell_total_recip = scipy.sparse.diags(1 / cell_totals)
+
     with open(GENE_LENGTH_PATHS[0]) as f:
         gene_lengths = json.load(f)
 
@@ -59,9 +52,11 @@ def counts_to_rpkm(adata):
         ensembl_symbols = inverted_gene_mapping[var]
         ensembl_gene_lengths = [gene_lengths[symbol] for symbol in ensembl_symbols if symbol in gene_lengths]
         gene_lengths_list.append(sum(ensembl_gene_lengths))
+    length_array = np.array(gene_lengths_list)
+    length_recip = scipy.sparse.diags(1 / length_array)
 
-    X = adata.X / np.array(gene_lengths_list) #Broadcast gene_lengths_list to same shape as adata.X and do elementwise division
-    return X
+    X = cell_total_recip @ adata.X @ length_recip
+    return X * 1e9
 
 def find_files(directory, patterns):
     for dirpath_str, dirnames, filenames in walk(directory):
