@@ -28,6 +28,13 @@ GENE_MAPPING_DIRECTORIES = [
 
 GENE_LENGTH_PATHS = [Path('/opt/data/gencode-v35-gene-lengths.json'), Path('/opt/data/salmon-index-v1.2-gene-lengths.json')]
 
+def get_annotation_metadata(filtered_files:List[Path]):
+    for filtered_file in filtered_files:
+        adata = anndata.read(filtered_file)
+        if 'annotation_metadata' in adata.uns.keys() and adata.uns['annotation_metadata']['is_annotated']:
+            return {'annotation_metadata':adata.uns['annotation_metadata']}
+    return {'annotation_metadata':{'is_annotated':False}}
+
 def get_inverted_gene_dict():
     inverted_dict = defaultdict(list)
     gene_mapping = read_gene_mapping()
@@ -88,6 +95,11 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> Tup
     filtered_adata.obs['dataset'] = data_set_dir
     filtered_adata.obs['organ'] = tissue_type
     filtered_adata.obs['modality'] = 'rna'
+
+    if 'predicted.ASCT.celltype' in filtered_adata.obs.columns:
+        filtered_adata.obs['cell_type'] = filtered_adata.obs['predicted.ASCT.celltype']
+    else:
+        filtered_adata.obs['cell_type'] = 'unknown'
 
     cells = list(filtered_adata.obs.index)
     unfiltered_subset = unfiltered_adata[cells,:].copy()
@@ -150,6 +162,8 @@ def main(token: str, directories: List[Path]):
     token = None if token == "None" else token
     # Load files
     file_pairs = [find_file_pairs(directory) for directory in directories]
+    filtered_files = [fp[0] for fp in file_pairs]
+    annotation_metadata = get_annotation_metadata(filtered_files)
     #This can be parallelized, though the benefits will likely be minimal
     annotated_files = [annotate_file(file_pair[0],file_pair[1], token) for file_pair in file_pairs]
     annotated_unfiltered_files = [file[0] for file in annotated_files]
@@ -160,10 +174,10 @@ def main(token: str, directories: List[Path]):
 
     mapped_annotated_unfiltered_files = [map_gene_ids(file) for file in annotated_unfiltered_files]
 
-#    with ThreadPoolExecutor(max_workers=len(directories)) as e:
-#        percentage_dfs = e.map(precompute_dataset_percentages, rpkm_adatas)
+    with ThreadPoolExecutor(max_workers=len(directories)) as e:
+        percentage_dfs = e.map(precompute_dataset_percentages, mapped_annotated_unfiltered_files)
 
-#    percentage_df = pd.concat(percentage_dfs)
+    percentage_df = pd.concat(percentage_dfs)
 
     concatenated_file = anndata.concat(mapped_annotated_unfiltered_files, fill_value=0, index_unique='_', join='inner')
 
@@ -171,7 +185,9 @@ def main(token: str, directories: List[Path]):
 
     dataset_leiden_list = [f"leiden-UMAP-{concatenated_file.obs.at[i, 'dataset']}-{concatenated_file.obs.at[i, 'leiden']}" for i in concatenated_file.obs.index]
     concatenated_file.obs['dataset_leiden'] = pd.Series(dataset_leiden_list, index=concatenated_file.obs.index)
-#    concatenated_file.uns['percentages'] = percentage_df
+    concatenated_file.uns['percentages'] = percentage_df
+    concatenated_file.uns['annotation_metadata'] = annotation_metadata['annotation_metadata']
+
 
     concatenated_file.write('concatenated_annotated_data.h5ad')
 
