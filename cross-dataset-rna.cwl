@@ -21,7 +21,7 @@ outputs:
     outputSource: annotate-concatenate/concatenated_annotated_file
     type: File
   h5ad_file:
-    outputSource: batch-correct/h5ad_file
+    outputSource: marker-gene/h5ad_file
     type: File
   pdf_files:
     outputSource: batch-correct/pdf_files
@@ -29,17 +29,11 @@ outputs:
   hdf5_file:
     outputSource: marker-gene/hdf5_file
     type: File
-  csv_file:
-    outputSource: marker-gene/csv_file
-    type: File
   gene_dictionaries:
     outputSource: annotate-concatenate/gene_dictionaries
     type: File[]
   mini_hdf5_file:
     outputSource: marker-gene/mini_hdf5_file
-    type: File
-  mini_csv_file:
-    outputSource: marker-gene/mini_csv_file
     type: File
 
 steps:

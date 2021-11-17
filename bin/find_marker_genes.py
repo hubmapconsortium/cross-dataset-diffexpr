@@ -97,10 +97,7 @@ def main(h5ad_file: Path, old_cluster_file:Path):
         store.put('cluster', cluster_df)
         store.put('gene', gene_df)
 
-    create_minimal_dataset(cell_df, quant_df, organ_df, cluster_df, 'rna')
-    cell_df.to_csv('mini_rna.csv')
-    with pd.HDFStore('mini_rna.hdf5') as store:
-        store.put('cell', cell_df, format='t')
+    create_minimal_dataset(cell_df, organ_df, cluster_df, 'rna')
 
 if __name__ == '__main__':
     p = ArgumentParser()

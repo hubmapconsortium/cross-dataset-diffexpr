@@ -23,13 +23,13 @@ outputs:
     type: File
     outputBinding:
       glob: "rna.hdf5"
-    doc: hdf5 file with layers containing dataframes for cell, group, and quant data
+    doc: hdf5 file with layers containing dataframes for cell, group, and gene data
 
-  csv_file:
+  had_file:
     type: File
     outputBinding:
-      glob: "rna.csv"
-    doc: csv file containing long narrow expression data
+      glob: "rna.h5ad"
+    doc: h5ad file containing expression data
 
   mini_hdf5_file:
     type: File
