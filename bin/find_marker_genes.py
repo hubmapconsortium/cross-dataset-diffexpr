@@ -5,11 +5,10 @@ from cross_dataset_common import get_pval_dfs, make_quant_df, create_minimal_dat
 import anndata
 import pandas as pd
 from hubmap_cell_id_gen_py import get_sequencing_cell_id
-import scipy
-
+from scipy.sparse import csr_matrix
+from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import Dict
-import numpy as np
 
 GENE_MAPPING_DIRECTORIES = [
     Path(__file__).parent.parent / 'data',
@@ -18,100 +17,87 @@ GENE_MAPPING_DIRECTORIES = [
 
 GENE_LENGTH_PATHS = [Path('/opt/data/gencode-v35-gene-lengths.json'), Path('/opt/data/salmon-index-v1.2-gene-lengths.json')]
 
-def get_inverted_gene_dict():
-    inverted_dict = {}
-    gene_mapping = read_gene_mapping()
-    for key in gene_mapping:
-        if gene_mapping[key] not in inverted_dict:
-            inverted_dict[gene_mapping[key]] = []
-        inverted_dict[gene_mapping[key]].append(key)
-    return inverted_dict
 
-def read_gene_mapping() -> Dict[str, str]:
-    """
-    Try to find the Ensembl to HUGO symbol mapping, with paths suitable
-    for running this script inside and outside a Docker container.
-    :return:
-    """
-    for directory in GENE_MAPPING_DIRECTORIES:
-        mapping_file = directory / 'ensembl_to_symbol.json'
-        if mapping_file.is_file():
-            with open(mapping_file) as f:
-                return json.load(f)
-    message_pieces = ["Couldn't find Ensembl → HUGO mapping file. Tried:"]
-    message_pieces.extend(f'\t{path}' for path in GENE_MAPPING_DIRECTORIES)
-    raise ValueError('\n'.join(message_pieces))
+def annotate_single_gene(param_tuple):
+    df = param_tuple[0]
+    var_id = param_tuple[1]
+    return_dict = {'gene_symbol':var_id}
+    gene_df = df[df[var_id] > 0]
+    return_dict['num_cells'] = len(gene_df.index)
+    return_dict['num_datasets'] = len(gene_df['dataset'].unique())
+    return return_dict
 
-def counts_to_rpkm(adata):
-    cell_totals = adata.X.sum(axis=1)
-    cell_total_recip = scipy.sparse.diags(1 / cell_totals)
+def annotate_genes(adata):
+    df = adata.to_df()
+    df['dataset'] = adata.obs['dataset']
+    params_tuples = [(df[['dataset', var_id]], var_id) for var_id in df.columns if var_id != 'dataset']
 
-    with open(GENE_LENGTH_PATHS[0]) as f:
-        gene_lengths = json.load(f)
+    with ThreadPoolExecutor(max_workers=20) as e:
+        dict_list = e.map(annotate_single_gene, params_tuples)
 
-    with open(GENE_LENGTH_PATHS[1]) as f:
-        gene_lengths.update(json.load(f))
+    return pd.DataFrame(dict_list)
 
-    inverted_gene_mapping = get_inverted_gene_dict()
+def make_minimal_adata(adata):
 
-    gene_lengths_list = []
-    for var in adata.var.index:
-        if var in inverted_gene_mapping:
-            ensembl_symbols = inverted_gene_mapping[var]
-        else:
-            var_prefix = var.split('-')[:-1]
-            ensembl_symbols = inverted_gene_mapping[''.join(var_prefix)]
-        ensembl_gene_lengths = [gene_lengths[symbol] for symbol in ensembl_symbols if symbol in gene_lengths]
-        gene_lengths_list.append(sum(ensembl_gene_lengths))
+    X = csr_matrix(adata.X)
+    obs = pd.DataFrame(index=adata.obs["cell_id"])
+    var = pd.DataFrame(index=adata.var.index)
 
-    length_array = np.array(gene_lengths_list)
-    length_recip = scipy.sparse.diags(1 / length_array)
+    min_adata = anndata.AnnData(X=X, obs=obs, var=var)
+    min_adata.write_h5ad("rna.h5ad")
 
-    X = cell_total_recip @ adata.X @ length_recip
-    return X * 1e9
+def make_cell_df(adata):
+
+    cell_df = adata.obs.copy()
+    clusters_list = [",".join([cell_df["leiden"][i], cell_df["dataset_leiden"][i]]) for i in cell_df.index]
+    cell_df["clusters"] = pd.Series(clusters_list, index=cell_df.index)
+
+    umap_one_list = [coord[0] for coord in adata.obsm['X_umap']]
+    umap_two_list = [coord[1] for coord in adata.obsm['X_umap']]
+
+    cell_df['umap_1'] = pd.Series(umap_one_list, index=cell_df.index)
+    cell_df['umap_2'] = pd.Series(umap_two_list, index=cell_df.index)
+
+    cell_df = cell_df[['cell_id', 'barcode', 'dataset', 'organ', 'modality', 'clusters', 'umap_1', 'umap_2', 'cell_type']]
+
+    return cell_df
+
+def make_grouping_dfs(adata, old_cluster_file):
+    #This can be threaded in the cdcommon lib
+    #@TODO: Add a cell type df
+    organ_df, cluster_df = get_pval_dfs(adata)
+
+    old_cluster_df = pd.read_hdf(old_cluster_file, 'cluster')
+
+    cluster_df_list = cluster_df.to_dict(orient='records')
+    cluster_df_list.extend(old_cluster_df.to_dict(orient='records'))
+
+    cluster_df = pd.DataFrame(cluster_df_list)
+
+    return cluster_df, organ_df
 
 def main(h5ad_file: Path, old_cluster_file:Path):
     adata = anndata.read_h5ad(h5ad_file)
     cell_id_list = [get_sequencing_cell_id(adata.obs["dataset"][i], adata.obs["barcode"][i]) for i in adata.obs.index]
     adata.obs["cell_id"] = pd.Series(cell_id_list, index=adata.obs.index)
 
-    #This can be threaded in the cdcommon lib
-#    organ_df, cluster_df = get_pval_dfs(adata)
+    adata.X = adata.layers["rpkm"]
+    cell_df = make_cell_df(adata)
 
-#    old_cluster_df = pd.read_hdf(old_cluster_file, 'cluster')
+    cluster_df, organ_df = make_grouping_dfs(adata, old_cluster_file)
 
-#    cluster_df_list = cluster_df.to_dict(orient='records')
-#    cluster_df_list.extend(old_cluster_df.to_dict(orient='records'))
+    gene_df = annotate_genes(adata)
 
-#    cluster_df = pd.concat([old_cluster_df, cluster_df])
-#    cluster_df = pd.DataFrame(cluster_df_list)
-
-    cell_df = adata.obs.copy()
-#    clusters_list = [",".join([cell_df["leiden"][i], cell_df["dataset_leiden"][i]]) for i in cell_df.index]
-#    cell_df["clusters"] = pd.Series(clusters_list, index=cell_df.index)
-
-    umap_one_list = [coord[0] for coord in adata.obsm['X_umap']]
-    umap_two_list = [coord[1] for coord in adata.obsm['X_umap']]
-
-#    cell_df['umap_1'] = pd.Series(umap_one_list, index=cell_df.index)
-#    cell_df['umap_2'] = pd.Series(umap_two_list, index=cell_df.index)
-
-#    cell_df = cell_df[['cell_id', 'barcode', 'dataset', 'organ', 'modality', 'clusters', 'umap_1', 'umap_2']]
-
-    adata.X = counts_to_rpkm(adata)
-
-    quant_df = make_quant_df(adata)
-
-#    load_data_to_vms('rna', cell_df, quant_df, organ_df, cluster_df)
-
-    quant_df.to_csv('rna.csv')
+    minimal_adata = make_minimal_adata(adata)
+    minimal_adata.write('rna.h5ad')
 
     with pd.HDFStore('rna.hdf5') as store:
         store.put('cell', cell_df, format='t')
-#        store.put('organ', organ_df)
-#        store.put('cluster', cluster_df)
+        store.put('organ', organ_df)
+        store.put('cluster', cluster_df)
+        store.put('gene', gene_df)
 
-#    create_minimal_dataset(cell_df, quant_df, organ_df, cluster_df, 'rna')
+    create_minimal_dataset(cell_df, quant_df, organ_df, cluster_df, 'rna')
     cell_df.to_csv('mini_rna.csv')
     with pd.HDFStore('mini_rna.hdf5') as store:
         store.put('cell', cell_df, format='t')
