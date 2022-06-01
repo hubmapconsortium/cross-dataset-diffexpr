@@ -103,6 +103,11 @@ if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('bc_h5ad_file', type=Path)
     p.add_argument('old_cluster_file', type=Path)
+    p.add_argument("--enable-manhole", action="store_true")
     args = p.parse_args()
+
+    if args.enable_manhole:
+        import manhole
+        manhole.install(activate_on="USR1")
 
     main(args.bc_h5ad_file, args.old_cluster_file)

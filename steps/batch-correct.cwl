@@ -7,6 +7,11 @@ hints:
 baseCommand: /opt/batch_correct_umap_cluster.py
 
 inputs:
+  enable_manhole:
+    label: "Whether to enable remote debugging via 'manhole'"
+    type: boolean?
+    inputBinding:
+      position: 0
   concatenated_annotated_file:
     type: File
     inputBinding:

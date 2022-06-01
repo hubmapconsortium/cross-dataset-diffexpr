@@ -7,6 +7,13 @@ hints:
 baseCommand: /opt/find_marker_genes.py
 
 inputs:
+
+  enable_manhole:
+    label: "Whether to enable remote debugging via 'manhole'"
+    type: boolean?
+    inputBinding:
+      position: 0
+
   batch_corrected_file:
     type: File
     inputBinding:

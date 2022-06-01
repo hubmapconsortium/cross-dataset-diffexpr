@@ -90,6 +90,11 @@ def main(h5ad_file: Path):
 if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('concatenated_h5ad_file', type=Path)
+    p.add_argument("--enable-manhole", action="store_true")
     args = p.parse_args()
+
+    if args.enable_manhole:
+        import manhole
+        manhole.install(activate_on="USR1")
 
     main(args.concatenated_h5ad_file)

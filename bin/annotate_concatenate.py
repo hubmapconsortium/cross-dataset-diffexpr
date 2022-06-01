@@ -196,6 +196,12 @@ if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('nexus_token', type=str)
     p.add_argument('data_directories', type=Path, nargs='+')
+    p.add_argument("--enable-manhole", action="store_true")
     args = p.parse_args()
+
+    if args.enable_manhole:
+        import manhole
+
+        manhole.install(activate_on="USR1")
 
     main(args.nexus_token, args.data_directories)

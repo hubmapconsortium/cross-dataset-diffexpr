@@ -6,6 +6,10 @@ label: Pipeline for evaluating differential expression of genes across datasets
 
 inputs:
 
+  enable_manhole:
+    label: "Whether to enable remote debugging via 'manhole'"
+    type: boolean?
+
   data_directories:
     label: "List of paths to all processed RNA datasets"
     type: Directory[]
