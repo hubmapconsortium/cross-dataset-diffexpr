@@ -24,6 +24,16 @@ inputs:
     inputBinding:
       position: 2
 
+  access_key_id:
+    type: str
+    inputBinding:
+      position: 3
+
+  secret_access_key:
+    type: str
+    inputBinding:
+      position: 4
+
 
 outputs:
   hdf5_file:
@@ -32,18 +42,14 @@ outputs:
       glob: "rna.hdf5"
     doc: hdf5 file with layers containing dataframes for cell, group, and gene data
 
-  had_file:
+  h5ad_file:
     type: File
     outputBinding:
       glob: "rna.h5ad"
     doc: h5ad file containing expression data
 
-  mini_hdf5_file:
+  precompute_file:
     type: File
     outputBinding:
-      glob: "mini_rna.hdf5"
-
-  mini_csv_file:
-    type: File
-    outputBinding:
-      glob: "mini_rna.csv"
+      glob: "rna_precompute.hdf5"
+    doc: hdf5 file containing precomputation results for accelerated queries

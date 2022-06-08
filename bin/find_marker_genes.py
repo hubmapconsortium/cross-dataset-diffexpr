@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
 from pathlib import Path
-from cross_dataset_common import get_pval_dfs, make_quant_df, create_minimal_dataset
+from cross_dataset_common import get_pval_dfs, create_minimal_dataset, make_minimal_adata, upload_files_to_s3
 import anndata
 import pandas as pd
 from hubmap_cell_id_gen_py import get_sequencing_cell_id
-from scipy.sparse import csr_matrix
 from concurrent.futures import ThreadPoolExecutor
-import json
-from typing import Dict
 
 GENE_MAPPING_DIRECTORIES = [
     Path(__file__).parent.parent / 'data',
@@ -36,15 +33,6 @@ def annotate_genes(adata):
         dict_list = e.map(annotate_single_gene, params_tuples)
 
     return pd.DataFrame(dict_list)
-
-def make_minimal_adata(adata):
-
-    X = csr_matrix(adata.X)
-    obs = pd.DataFrame(index=adata.obs["cell_id"])
-    var = pd.DataFrame(index=adata.var.index)
-
-    min_adata = anndata.AnnData(X=X, obs=obs, var=var)
-    min_adata.write_h5ad("rna.h5ad")
 
 def make_cell_df(adata):
 
@@ -76,7 +64,7 @@ def make_grouping_dfs(adata, old_cluster_file):
 
     return cluster_df, organ_df
 
-def main(h5ad_file: Path, old_cluster_file:Path):
+def main(h5ad_file: Path, old_cluster_file:Path, access_key_id:str, secret_access_key:str):
     adata = anndata.read_h5ad(h5ad_file)
     cell_id_list = [get_sequencing_cell_id(adata.obs["dataset"][i], adata.obs["barcode"][i]) for i in adata.obs.index]
     adata.obs["cell_id"] = pd.Series(cell_id_list, index=adata.obs.index)
@@ -97,12 +85,15 @@ def main(h5ad_file: Path, old_cluster_file:Path):
         store.put('cluster', cluster_df)
         store.put('gene', gene_df)
 
-    create_minimal_dataset(cell_df, organ_df, cluster_df, 'rna')
+    files_to_upload = [Path('rna.hdf5'), Path('rna_precompute.hdf5'), Path('rna.h5ad')]
+    upload_files_to_s3(files_to_upload, access_key_id, secret_access_key)
 
 if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('bc_h5ad_file', type=Path)
     p.add_argument('old_cluster_file', type=Path)
+    p.add_argument('access_key_id', type=str)
+    p.add_argument('secret_access_key', type=str)
     p.add_argument("--enable-manhole", action="store_true")
     args = p.parse_args()
 
@@ -110,4 +101,4 @@ if __name__ == '__main__':
         import manhole
         manhole.install(activate_on="USR1")
 
-    main(args.bc_h5ad_file, args.old_cluster_file)
+    main(args.concatenated_annotated_file, args.old_cluster_file, args.access_key_id, args.secret_access_key)

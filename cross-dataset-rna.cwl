@@ -18,6 +18,14 @@ inputs:
     label: "Valid nexus token for search-api"
     type: string?
 
+  access_key_id:
+    label: "String id containing credentials for writing to s3 bucket"
+    type: string
+
+  secret_access_key:
+    label: "String key containing credentials for writing to s3 bucket"
+    type: string
+
 
 outputs:
 
@@ -26,6 +34,9 @@ outputs:
     type: File
   h5ad_file:
     outputSource: marker-gene/h5ad_file
+    type: File
+  precompute_file:
+    outputSource: marker-genes/precompute_file
     type: File
   pdf_files:
     outputSource: batch-correct/pdf_files
@@ -36,9 +47,6 @@ outputs:
   gene_dictionaries:
     outputSource: annotate-concatenate/gene_dictionaries
     type: File[]
-  mini_hdf5_file:
-    outputSource: marker-gene/mini_hdf5_file
-    type: File
 
 steps:
 
@@ -48,6 +56,8 @@ steps:
         source: data_directories
       - id: nexus_token
         source: nexus_token
+      - id: enable_manhole
+        source: enable_manhole
 
     out:
       - concatenated_annotated_file
@@ -74,9 +84,14 @@ steps:
         source: batch-correct/h5ad_file
       - id: old_cluster_file
         source: annotate-concatenate/old_cluster_file
+      - id: access_key_id
+        source: access_key_id
+      - id: secret_access_key
+        source: secret_access_key
     out:
-      - mini_hdf5_file
-      - mini_csv_file
+      - hdf5_file
+      - h5ad_file
+      - precompute_file
 
     run: steps/marker-gene.cwl
     label: "Cross dataset secondary analysis via ScanPy, including marker gene analysis"
