@@ -141,6 +141,7 @@ def map_gene_ids(adata):
     adata.layers["rpkm"] = counts_to_rpkm(adata)
     # This introduces duplicate gene names, use Pandas for aggregation
     # since anndata doesn't have that functionality
+    adata.X = scipy.sparse.csr_matrix(adata.X)
     adata.var_names_make_unique()
     return adata
 
