@@ -63,7 +63,7 @@ def counts_to_rpkm(adata):
     length_recip = scipy.sparse.diags(1 / length_array)
 
     X = cell_total_recip @ adata.X @ length_recip
-    return X * 1e9
+    return scipy.sparse.csr_matrix(X * 1e9)
 
 def find_files(directory, patterns):
     for dirpath_str, dirnames, filenames in walk(directory):
