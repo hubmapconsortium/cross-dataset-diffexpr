@@ -38,8 +38,8 @@ def main(h5ad_file: Path):
     adata.var_names_make_unique()
     adata.obs_names_make_unique()
 
-    sc.pp.filter_cells(adata, min_genes=200)
-    sc.pp.filter_genes(adata, min_cells=3)
+#    sc.pp.filter_cells(adata, min_genes=200)
+#    sc.pp.filter_genes(adata, min_cells=3)
 
     adata.raw = adata
 

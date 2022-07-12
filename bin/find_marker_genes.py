@@ -69,13 +69,12 @@ def main(h5ad_file: Path, old_cluster_file:Path, access_key_id:str, secret_acces
     cell_id_list = [get_sequencing_cell_id(adata.obs["dataset"][i], adata.obs["barcode"][i]) for i in adata.obs.index]
     adata.obs["cell_id"] = pd.Series(cell_id_list, index=adata.obs.index)
 
-    adata.X = adata.layers["rpkm"]
-    cell_df = make_cell_df(adata)
-
     cluster_df, organ_df = make_grouping_dfs(adata, old_cluster_file)
 
     gene_df = annotate_genes(adata)
 
+    adata.X = adata.layers["rpkm"]
+    cell_df = make_cell_df(adata)
     minimal_adata = make_minimal_adata(adata)
     minimal_adata.write('rna.h5ad')
 
