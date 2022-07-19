@@ -4,6 +4,7 @@ h5py~=3.2.1
 leidenalg~=0.8.0
 louvain~=0.7.0
 manhole
+memory-profiler
 networkx~=2.4
 numba~=0.49.1
 numexpr~=2.7.1

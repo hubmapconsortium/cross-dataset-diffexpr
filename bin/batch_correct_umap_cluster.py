@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
 from pathlib import Path
+from memory-profiler import profile
 
 import anndata
 import scanpy as sc
@@ -32,14 +33,14 @@ def new_plot():
         plt.clf()
         plt.close()
 
-def main(h5ad_file: Path):
-    adata = anndata.read_h5ad(h5ad_file)
+@profile
+def batch_correct_umap_cluster(adata):
     print(adata.obsm)
     adata.var_names_make_unique()
     adata.obs_names_make_unique()
 
-#    sc.pp.filter_cells(adata, min_genes=200)
-#    sc.pp.filter_genes(adata, min_cells=3)
+    #    sc.pp.filter_cells(adata, min_genes=200)
+    #    sc.pp.filter_genes(adata, min_cells=3)
 
     adata.raw = adata
 
@@ -84,8 +85,30 @@ def main(h5ad_file: Path):
     print('Saving output to', output_file.absolute())
     print(adata.layers)
 
-    adata.write_h5ad(output_file)
+#    adata.write_h5ad(output_file)
 
+def main(h5ad_file: Path):
+    adata = anndata.read_h5ad(h5ad_file)
+
+    dataset_tuples = [(uuid, len(adata.obs[adata.obs['dataset'] == uuid].index)) for uuid in adata.obs["dataset"].unique()]
+    dataset_tuples.sort(key=lambda y: y[1])
+    current_dataset = adata.obs["dataset"].iloc[0]
+    adata.obs["num_in_dataset"] = pd.Series()
+    current_count = 0
+    for i in adata.obs.index:
+        if adata.obs.at[i, "dataset"] != current_dataset:
+                current_dataset = adata.obs.at[i, "dataset"]
+                current_count = 0
+        adata.obs.at[i, "num_in_dataset"] = current_count
+
+    for num_datasets in [2, 4, 8, 16, 32, 64, 128]:
+        for cells_per_dataset in [100, 1000, 10000]:
+            print(f"{num_datasets} datasets with {cells_per_dataset} cells in each")
+            uuids = [dataset_tuple[0] for dataset_tuple in dataset_tuples[0:num_datasets]]
+            sub_adata = adata[sub_adata.obs["dataset"].isin(uuids)]
+            sub_adata = sub_adata[sub_adata.obs["num_in_dataset"] <= cells_per_dataset]
+            print(f"{len(sub_adata.obs.index)} total cells")
+            batch_correct_umap_cluster(sub_adata)
 
 if __name__ == '__main__':
     p = ArgumentParser()
