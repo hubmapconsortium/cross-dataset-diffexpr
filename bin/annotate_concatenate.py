@@ -11,7 +11,7 @@ from collections import defaultdict
 from os import fspath, walk
 from pathlib import Path
 from typing import List, Dict, Sequence, Tuple, Optional
-from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id, precompute_dataset_percentages
+from cross_dataset_common import get_tissue_type, get_gene_dicts, get_cluster_df, hash_cell_id, precompute_dataset_percentages, get_pval_dfs, make_minimal_adata, upload_files_to_s3
 from concurrent.futures import ThreadPoolExecutor
 
 import anndata
@@ -27,6 +27,29 @@ GENE_MAPPING_DIRECTORIES = [
 ]
 
 GENE_LENGTH_PATHS = [Path('/opt/data/gencode-v35-gene-lengths.json'), Path('/opt/data/salmon-index-v1.2-gene-lengths.json')]
+
+@contextmanager
+def new_plot():
+    """
+    When used in a `with` block, clears matplotlib internal state
+    after plotting and saving things. Probably not necessary to be this
+    thorough in clearing everything, but extra calls to `plt.clf()` and
+    `plf.close()` don't *hurt*
+    Intended usage:
+        ```
+        with new_plot():
+            do_matplotlib_things()
+            plt.savefig(path)
+            # or
+            fig.savefig(path)
+        ```
+    """
+    plt.clf()
+    try:
+        yield
+    finally:
+        plt.clf()
+        plt.close()
 
 def get_annotation_metadata(filtered_files:List[Path]):
     for filtered_file in filtered_files:
@@ -157,20 +180,119 @@ def get_old_cluster_df(annotated_filtered_files):
     with pd.HDFStore('cluster.hdf5') as store:
         store.put('cluster', cluster_df)
 
+def batch_correct_umap_cluster(adata):
+    print(adata.obsm)
+    adata.var_names_make_unique()
+    adata.obs_names_make_unique()
 
-def main(token: str, directories: List[Path]):
+    #    sc.pp.filter_cells(adata, min_genes=200)
+    #    sc.pp.filter_genes(adata, min_cells=3)
+
+    adata.raw = adata
+
+    adata.obsm["umap"] = adata.obsm["X_umap"]
+
+    adata.obsm.pop("umap")
+    adata.obsm.pop("X_umap")
+
+    adata.obs["n_counts"] = adata.X.sum(axis=1)
+
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+    sc.pp.combat(adata, "dataset")
+    sc.pp.scale(adata, max_value=10)
+
+    sc.pp.pca(adata, n_comps=50)
+    sc.pp.neighbors(adata, n_neighbors=50, n_pcs=50)
+
+    sc.tl.umap(adata)
+
+    # leiden clustering
+    sc.tl.leiden(adata)
+
+    with new_plot():
+        sc.pl.umap(adata, color="leiden", show=False)
+        plt.savefig("umap_by_leiden_cluster.pdf", bbox_inches="tight")
+
+    with new_plot():
+        sc.pl.umap(adata, color="dataset", show=False)
+        plt.savefig("umap_by_dataset.pdf", bbox_inches="tight")
+
+    with new_plot():
+        sc.pl.umap(adata, color="organ", show=False)
+        plt.savefig("umap_by_organ.pdf", bbox_inches="tight")
+
+    leiden_list = [f"leiden-UMAP-allrna-{adata.obs['leiden'][i]}" for i in adata.obs.index]
+
+    adata.obs['leiden'] = pd.Series(leiden_list, index=adata.obs.index)
+
+    # Write out as h5ad
+    output_file = Path('bc_umap_cluster.h5ad')
+    print('Saving output to', output_file.absolute())
+    print(adata.layers)
+
+#    adata.write_h5ad(output_file)
+
+def annotate_single_gene(param_tuple):
+    df = param_tuple[0]
+    var_id = param_tuple[1]
+    return_dict = {'gene_symbol':var_id}
+    gene_df = df[df[var_id] > 0]
+    return_dict['num_cells'] = len(gene_df.index)
+    return_dict['num_datasets'] = len(gene_df['dataset'].unique())
+    return return_dict
+
+def annotate_genes(adata):
+    df = adata.to_df()
+    df['dataset'] = adata.obs['dataset']
+    params_tuples = [(df[['dataset', var_id]], var_id) for var_id in df.columns if var_id != 'dataset']
+
+    with ThreadPoolExecutor(max_workers=20) as e:
+        dict_list = e.map(annotate_single_gene, params_tuples)
+
+    return pd.DataFrame(dict_list)
+
+def make_cell_df(adata):
+
+    cell_df = adata.obs.copy()
+    clusters_list = [",".join([cell_df["leiden"][i], cell_df["dataset_leiden"][i]]) for i in cell_df.index]
+    cell_df["clusters"] = pd.Series(clusters_list, index=cell_df.index)
+
+    umap_one_list = [coord[0] for coord in adata.obsm['X_umap']]
+    umap_two_list = [coord[1] for coord in adata.obsm['X_umap']]
+
+    cell_df['umap_1'] = pd.Series(umap_one_list, index=cell_df.index)
+    cell_df['umap_2'] = pd.Series(umap_two_list, index=cell_df.index)
+
+    cell_df = cell_df[['cell_id', 'barcode', 'dataset', 'organ', 'modality', 'clusters', 'umap_1', 'umap_2', 'cell_type']]
+
+    return cell_df
+
+def make_grouping_dfs(adata, old_cluster_file):
+    #This can be threaded in the cdcommon lib
+    #@TODO: Add a cell type df
+    organ_df, cluster_df = get_pval_dfs(adata)
+
+    old_cluster_df = pd.read_hdf(old_cluster_file, 'cluster')
+
+    cluster_df_list = cluster_df.to_dict(orient='records')
+    cluster_df_list.extend(old_cluster_df.to_dict(orient='records'))
+
+    cluster_df = pd.DataFrame(cluster_df_list)
+
+    return cluster_df, organ_df
+
+def main(token: str, directories: List[Path], access_key_id:str, secret_access_key:str):
 
     token = None if token == "None" else token
     # Load files
     file_pairs = [find_file_pairs(directory) for directory in directories]
     filtered_files = [fp[0] for fp in file_pairs]
     annotation_metadata = get_annotation_metadata(filtered_files)
-    #This can be parallelized, though the benefits will likely be minimal
     annotated_files = [annotate_file(file_pair[0],file_pair[1], token) for file_pair in file_pairs]
     annotated_unfiltered_files = [file[0] for file in annotated_files]
     annotated_filtered_files = [file[1] for file in annotated_files]
 
-    #This can be parallelized
     get_old_cluster_df(annotated_filtered_files)
 
     mapped_annotated_unfiltered_files = [map_gene_ids(file) for file in annotated_unfiltered_files]
@@ -182,22 +304,40 @@ def main(token: str, directories: List[Path]):
 
     concatenated_file = anndata.concat(mapped_annotated_unfiltered_files, fill_value=0, index_unique='_', join='inner')
 
-    print(concatenated_file.layers)
-
     dataset_leiden_list = [f"leiden-UMAP-{concatenated_file.obs.at[i, 'dataset']}-{concatenated_file.obs.at[i, 'leiden']}" for i in concatenated_file.obs.index]
     concatenated_file.obs['dataset_leiden'] = pd.Series(dataset_leiden_list, index=concatenated_file.obs.index)
     concatenated_file.uns['percentages'] = percentage_df
     concatenated_file.uns['annotation_metadata'] = annotation_metadata['annotation_metadata']
 
+    bc_adata = batch_correct_umap_cluster(concatenated_file)
 
-    concatenated_file.write('concatenated_annotated_data.h5ad')
+    cluster_df, organ_df = make_grouping_dfs(adata, old_cluster_file)
+
+    gene_df = annotate_genes(bc_adata)
+
+    bc_adata.X = bc_adata.layers["rpkm"]
+    cell_df = make_cell_df(bc_adata)
+    minimal_adata = make_minimal_adata(bc_adata)
+    minimal_adata.write('rna.h5ad')
+
+    with pd.HDFStore('rna.hdf5') as store:
+        store.put('cell', cell_df, format='t')
+        store.put('organ', organ_df)
+        store.put('cluster', cluster_df)
+        store.put('gene', gene_df)
+
+    files_to_upload = [Path('rna.hdf5'), Path('rna_precompute.hdf5'), Path('rna.h5ad')]
+    upload_files_to_s3(files_to_upload, access_key_id, secret_access_key)
 
 
 if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('nexus_token', type=str)
     p.add_argument('data_directories', type=Path, nargs='+')
+    p.add_argument('access_key_id', type=str)
+    p.add_argument('secret_access_key', type=str)
     p.add_argument("--enable-manhole", action="store_true")
+
     args = p.parse_args()
 
     if args.enable_manhole:
@@ -205,4 +345,4 @@ if __name__ == '__main__':
 
         manhole.install(activate_on="USR1")
 
-    main(args.nexus_token, args.data_directories)
+    main(args.nexus_token, args.data_directories, args.access_key_id, args.secret_access_key)

@@ -33,16 +33,16 @@ outputs:
     outputSource: annotate-concatenate/concatenated_annotated_file
     type: File
   h5ad_file:
-    outputSource: marker-gene/h5ad_file
+    outputSource: annotate-concatenate/h5ad_file
     type: File
   precompute_file:
-    outputSource: marker-genes/precompute_file
+    outputSource: annotate-concatenate/precompute_file
     type: File
   pdf_files:
-    outputSource: batch-correct/pdf_files
+    outputSource: annotate-concatenate/pdf_files
     type: File[]
   hdf5_file:
-    outputSource: marker-gene/hdf5_file
+    outputSource: annotate-concatenate/hdf5_file
     type: File
   gene_dictionaries:
     outputSource: annotate-concatenate/gene_dictionaries
@@ -58,40 +58,18 @@ steps:
         source: nexus_token
       - id: enable_manhole
         source: enable_manhole
+      - id: access_key_id
+        source: access_key_id
+      - id: secret_access_key
+        source: secret_access_key
 
     out:
       - concatenated_annotated_file
       - gene_dictionaries
       - old_cluster_file
-
-    run: steps/annotate-concatenate.cwl
-    label: "Annotates and concatenates h5ad data files in directory"
-
-  - id: batch-correct
-    in:
-      - id: concatenated_annotated_file
-        source: annotate-concatenate/concatenated_annotated_file
-    out:
-      - h5ad_file
-      - pdf_files
-
-    run: steps/batch-correct.cwl
-    label: "Cross dataset secondary analysis via ScanPy, including batch correction, dimensionality reduction and leiden clustering"
-
-  - id: marker-gene
-    in:
-      - id: batch_corrected_file
-        source: batch-correct/h5ad_file
-      - id: old_cluster_file
-        source: annotate-concatenate/old_cluster_file
-      - id: access_key_id
-        source: access_key_id
-      - id: secret_access_key
-        source: secret_access_key
-    out:
       - hdf5_file
       - h5ad_file
       - precompute_file
 
-    run: steps/marker-gene.cwl
-    label: "Cross dataset secondary analysis via ScanPy, including marker gene analysis"
+    run: steps/annotate-concatenate.cwl
+    label: "Annotates and concatenates h5ad data files in directory"

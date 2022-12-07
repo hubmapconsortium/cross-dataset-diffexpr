@@ -27,11 +27,15 @@ inputs:
     inputBinding:
       position: 2
 
-  enable_manhole:
-    label: "Whether to enable remote debugging via 'manhole'"
-    type: boolean?
+  access_key_id:
+    type: str
     inputBinding:
-      position: 0
+      position: 3
+
+  secret_access_key:
+    type: str
+    inputBinding:
+      position: 4
 
 outputs:
   concatenated_annotated_file:
