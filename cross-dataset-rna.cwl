@@ -44,9 +44,12 @@ outputs:
   hdf5_file:
     outputSource: annotate-concatenate/hdf5_file
     type: File
-  gene_dictionaries:
-    outputSource: annotate-concatenate/gene_dictionaries
-    type: File[]
+  precompute_file:
+    outputSource: annotate-concatenate/precompute_file
+    type: File
+  zarr_file:
+    outputSource: annotate-concatenate/zarr_store
+    type: File
 
 steps:
 
@@ -64,12 +67,11 @@ steps:
         source: secret_access_key
 
     out:
-      - concatenated_annotated_file
-      - gene_dictionaries
-      - old_cluster_file
       - hdf5_file
       - h5ad_file
       - precompute_file
+      - pdf_files
+      - zarr_file
 
     run: steps/annotate-concatenate.cwl
     label: "Annotates and concatenates h5ad data files in directory"

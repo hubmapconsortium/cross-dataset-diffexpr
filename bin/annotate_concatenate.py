@@ -305,7 +305,6 @@ def main(token: str, directories: List[Path], access_key_id:str, secret_access_k
 
     dataset_leiden_list = [f"leiden-UMAP-{concatenated_file.obs.at[i, 'dataset']}-{concatenated_file.obs.at[i, 'leiden']}" for i in concatenated_file.obs.index]
     concatenated_file.obs['dataset_leiden'] = pd.Series(dataset_leiden_list, index=concatenated_file.obs.index)
-    concatenated_file.uns['percentages'] = percentage_df
     concatenated_file.uns['annotation_metadata'] = annotation_metadata['annotation_metadata']
 
     bc_adata = batch_correct_umap_cluster(concatenated_file)
@@ -324,6 +323,9 @@ def main(token: str, directories: List[Path], access_key_id:str, secret_access_k
         store.put('organ', organ_df)
         store.put('cluster', cluster_df)
         store.put('gene', gene_df)
+
+    with pd.HDFStore('rna_precompute.hdf5') as store:
+        store.put('percentages', percentage_df)
 
     bc_adata.write_zarr('rna.zarr', chunks=[bc_adata.shape[0], 2])
 

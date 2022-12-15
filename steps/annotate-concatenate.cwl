@@ -38,20 +38,31 @@ inputs:
       position: 4
 
 outputs:
-  concatenated_annotated_file:
+  hdf5_file:
     type: File
     outputBinding:
-      glob: "concatenated_annotated_data.h5ad"
-    doc: Annotated, concatenated dataset in hdf5 format
+      glob: "rna.hdf5"
+    doc: hdf5 file with layers containing dataframes for cell, group, and gene data
 
-  old_cluster_file:
+  precompute_file:
     type: File
     outputBinding:
-      glob: "cluster.hdf5"
-    doc: Hdf file containing old cluster p values
+      glob: "rna_precompute.hdf5"
+    doc: hdf5 file with data for accelerated queries
 
-  gene_dictionaries:
+  h5ad_file:
+    type: File
+    outputBinding:
+      glob: "rna.h5ad"
+    doc: h5ad file containing expression data
+
+  zarr_file:
+    type: File
+    outputBinding
+      glob: "rna.zarr"
+    doc: zarr store containing batch corrected data, metadata, cluster assignments and UMAP coordinates
+
+  pdf_files:
     type: File[]
     outputBinding:
-      glob: '*.json'
-    doc: Json files mapping from hugo symbols to versioned ensembl ids
+      glob: "*.pdf"
