@@ -20,6 +20,7 @@ import pandas as pd
 import scipy.sparse
 import scanpy as sc
 import numpy as np
+import mathplotlib.pyplot as plt
 
 GENE_MAPPING_DIRECTORIES = [
     Path(__file__).parent.parent / 'data',
@@ -268,12 +269,10 @@ def make_cell_df(adata):
 
     return cell_df
 
-def make_grouping_dfs(adata, old_cluster_file):
+def make_grouping_dfs(adata, old_cluster_df):
     #This can be threaded in the cdcommon lib
     #@TODO: Add a cell type df
     organ_df, cluster_df = get_pval_dfs(adata)
-
-    old_cluster_df = pd.read_hdf(old_cluster_file, 'cluster')
 
     cluster_df_list = cluster_df.to_dict(orient='records')
     cluster_df_list.extend(old_cluster_df.to_dict(orient='records'))
@@ -282,7 +281,7 @@ def make_grouping_dfs(adata, old_cluster_file):
 
     return cluster_df, organ_df
 
-def main(token: str, directories: List[Path], access_key_id:str, secret_access_key:str):
+def main(token: str, directories: List[Path], access_key_id:str, secret_access_key:str, include_all_outputs: bool):
 
     token = None if token == "None" else token
     # Load files
@@ -293,7 +292,7 @@ def main(token: str, directories: List[Path], access_key_id:str, secret_access_k
     annotated_unfiltered_files = [file[0] for file in annotated_files]
     annotated_filtered_files = [file[1] for file in annotated_files]
 
-    get_old_cluster_df(annotated_filtered_files)
+    old_cluster_df = get_old_cluster_df(annotated_filtered_files)
 
     mapped_annotated_unfiltered_files = [map_gene_ids(file) for file in annotated_unfiltered_files]
 
@@ -311,7 +310,7 @@ def main(token: str, directories: List[Path], access_key_id:str, secret_access_k
 
     bc_adata = batch_correct_umap_cluster(concatenated_file)
 
-    cluster_df, organ_df = make_grouping_dfs(adata, old_cluster_file)
+    cluster_df, organ_df = make_grouping_dfs(bc_adata, old_cluster_df)
 
     gene_df = annotate_genes(bc_adata)
 
@@ -326,7 +325,9 @@ def main(token: str, directories: List[Path], access_key_id:str, secret_access_k
         store.put('cluster', cluster_df)
         store.put('gene', gene_df)
 
-    files_to_upload = [Path('rna.hdf5'), Path('rna_precompute.hdf5'), Path('rna.h5ad')]
+    bc_adata.write_zarr('rna.zarr', chunks=[bc_adata.shape[0], 2])
+
+    files_to_upload = [Path('rna.hdf5'), Path('rna_precompute.hdf5'), Path('rna.h5ad'), Path('rna.zarr')]
     upload_files_to_s3(files_to_upload, access_key_id, secret_access_key)
 
 
