@@ -21,21 +21,17 @@ inputs:
       position: 1
     default: "None"
 
-  data_directories:
-    type: Directory[]
+  data_directory:
+    type: Directory
     doc: List of paths to processed dataset directories
     inputBinding:
       position: 2
 
-  access_key_id:
-    type: str
+  uuids_file:
+    type: File
+    doc: Path to file containing uuids of all datasets to be indexed
     inputBinding:
       position: 3
-
-  secret_access_key:
-    type: str
-    inputBinding:
-      position: 4
 
 outputs:
   hdf5_file:

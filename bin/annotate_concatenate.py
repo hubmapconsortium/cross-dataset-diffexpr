@@ -120,8 +120,9 @@ def annotate_file(filtered_file: Path, unfiltered_file: Path, token: str) -> Tup
     filtered_adata.obs['organ'] = tissue_type
     filtered_adata.obs['modality'] = 'rna'
 
-    if 'predicted.ASCT.celltype' in filtered_adata.obs.columns:
-        filtered_adata.obs['cell_type'] = filtered_adata.obs['predicted.ASCT.celltype']
+    if 'predicted_CLID' in filtered_adata.obs.columns:
+        filtered_adata.obs['cell_type'] = filtered_adata.obs['predicted_CLID']
+
     else:
         filtered_adata.obs['cell_type'] = 'unknown'
 
@@ -281,8 +282,10 @@ def make_grouping_dfs(adata, old_cluster_df):
 
     return cluster_df, organ_df
 
-def main(token: str, directories: List[Path], access_key_id:str, secret_access_key:str, include_all_outputs: bool):
+def main(token: str, data_directory:Path, uuids_file: Path):
 
+    uuids = pd.read_csv(uuids_file)["uuid"]
+    directories = [data_directory / Path(uuid) for uuid in uuids]
     token = None if token == "None" else token
     # Load files
     file_pairs = [find_file_pairs(directory) for directory in directories]
@@ -330,15 +333,16 @@ def main(token: str, directories: List[Path], access_key_id:str, secret_access_k
     bc_adata.write_zarr('rna.zarr', chunks=[bc_adata.shape[0], 2])
 
     files_to_upload = [Path('rna.hdf5'), Path('rna_precompute.hdf5'), Path('rna.h5ad'), Path('rna.zarr')]
-    upload_files_to_s3(files_to_upload, access_key_id, secret_access_key)
+#    upload_files_to_s3(files_to_upload, access_key_id, secret_access_key)
 
 
 if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('nexus_token', type=str)
-    p.add_argument('data_directories', type=Path, nargs='+')
-    p.add_argument('access_key_id', type=str)
-    p.add_argument('secret_access_key', type=str)
+    p.add_argument('data_directory', type=Path)
+    p.add_argument('uuids_file', type=Path)
+#    p.add_argument('access_key_id', type=str)
+#    p.add_argument('secret_access_key', type=str)
     p.add_argument("--enable-manhole", action="store_true")
 
     args = p.parse_args()
@@ -348,4 +352,4 @@ if __name__ == '__main__':
 
         manhole.install(activate_on="USR1")
 
-    main(args.nexus_token, args.data_directories, args.access_key_id, args.secret_access_key)
+    main(args.nexus_token, args.data_directory, args.uuids_file)

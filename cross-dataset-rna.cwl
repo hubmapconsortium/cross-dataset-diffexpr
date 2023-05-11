@@ -10,21 +10,13 @@ inputs:
     label: "Whether to enable remote debugging via 'manhole'"
     type: boolean?
 
-  data_directories:
+  data_directory:
     label: "List of paths to all processed RNA datasets"
-    type: Directory[]
+    type: Directory
 
-  nexus_token:
-    label: "Valid nexus token for search-api"
-    type: string?
-
-  access_key_id:
-    label: "String id containing credentials for writing to s3 bucket"
-    type: string
-
-  secret_access_key:
-    label: "String key containing credentials for writing to s3 bucket"
-    type: string
+  uuids_file
+    label: "Path to a file containing a list of uuids for the dataset to be indexed"
+    type: File
 
 
 outputs:
@@ -59,12 +51,8 @@ steps:
         source: data_directories
       - id: nexus_token
         source: nexus_token
-      - id: enable_manhole
-        source: enable_manhole
-      - id: access_key_id
-        source: access_key_id
-      - id: secret_access_key
-        source: secret_access_key
+      - id: uuids_file:
+        source: uuids_file
 
     out:
       - hdf5_file
